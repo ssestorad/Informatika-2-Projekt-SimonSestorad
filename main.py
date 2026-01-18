@@ -2,185 +2,10 @@ from tkinter import *
 from tkinter import messagebox
 from random import *
 from random import randint, choice
+from player import Player
+from dice import Dice
+from game import FarkleGame
 
-class Dice:
-    def __init__(self):
-        self.value = 0
-        self.kept = False
-        self.selected = False
-    
-    def roll(self):
-        self.value = randint(1, 6)
-        self.kept = False
-        self.selected = False
-        return self.value
-    
-    def reset(self):
-        self.value = 0
-        self.kept = False
-        self.selected = False
-    
-    def get_display(self):
-        displays = {
-            1: "  ●  ",
-            2: "●    ●",
-            3: "● ● ●",
-            4: "● ●\n● ●",
-            5: "● ● ●\n  ●  ",
-            6: "● ● ●\n● ● ●"
-        }
-        return displays.get(self.value, "  ?  ")
-
-class Player:
-    def __init__(self, name):
-        self.name = name
-        self.total_score = 0
-        self.round_score = 0
-        self.last_bank = 0
-
-        self.primary_ability = None
-        self.secondary_ability = None
-        self.abilities_used = {}
-        self.turn_count = 0
-        self.dice = [Dice() for _ in range(6)]
-    
-    def new_turn(self):
-        self.turn_count += 1
-        if self.turn_count % 5 == 0:
-            self.secondary_ability = choice(["double", "sabotage", "steal", "fast_points", "boost"])
-            messagebox.showinfo("NOVÁ SCHOPNOST!", 
-                f"{self.name}: {self.secondary_ability.upper()}!\n(Tah #{self.turn_count})")
-    
-    def get_active_ability(self):
-        return self.secondary_ability or self.primary_ability
-    
-    def roll_dice(self, num_dice):
-        """VŽDY hází přesně num_dice kostek"""
-        active_count = 0
-        for i in range(6):
-            if not self.dice[i].kept and active_count < num_dice:
-                self.dice[i].reset()
-                self.dice[i].roll()
-                active_count += 1
-    
-    def calculate_score(self):
-        active_values = [d.value for d in self.dice if not d.kept and d.value > 0]
-        if not active_values: return 0, []
-
-        counts = {1:0, 2:0, 3:0, 4:0, 5:0, 6:0}
-        for val in active_values: counts[val] += 1
-
-        score = 0; combos = []
-
-        for i in range(1, 7):
-            if counts[i] >= 3:
-                sets = counts[i] // 3
-                if i == 1:
-                    points = sets * 1000
-                    combos.append(f"3x1: {points}")
-                else:
-                    points = sets * i * 100
-                    combos.append(f"{sets}x{i}: {points}")
-                score += points
-                counts[i] -= sets * 3
-
-        ones = min(counts[1], 3)
-        fives = min(counts[5], 3)
-
-        if ones > 0:
-            score += ones * 100
-            combos.append(f"1ky: {ones}x100={ones*100}")
-        if fives > 0:
-            score += fives * 50
-            combos.append(f"5ky: {fives}x50={fives*50}")
-
-        return score, combos
-    
-    def has_scoring_dice(self):
-        return self.calculate_score()[0] > 0
-    
-    def get_active_count(self):
-        return sum(1 for d in self.dice if not d.kept and d.value > 0)
-    
-    def keep_selected(self):
-        for die in self.dice:
-            if die.selected:
-                die.kept = True
-                die.selected = False
-    
-    def bank_points(self, opponent):
-        final_round = self.round_score
-        
-        ability = self.get_active_ability()
-        if ability == "fast_points" and ability not in self.abilities_used:
-            final_round += 500
-            self.abilities_used[ability] = True
-            messagebox.showinfo("Fast Points!", f"{self.name}: +500 bonus!")
-        
-        self.total_score += final_round
-        self.last_bank = final_round
-        self.round_score = 0
-        
-        if ability == "double" and ability not in self.abilities_used:
-            self.total_score += final_round
-            self.abilities_used[ability] = True
-            messagebox.showinfo("Dvojnásobek!", f"{self.name}: BANK ×2!")
-        elif ability == "boost" and ability not in self.abilities_used:
-            boost = int(self.total_score * 0.1)
-            self.total_score += boost
-            self.abilities_used[ability] = True
-            messagebox.showinfo("10% Boost!", f"{self.name}: +{boost} bodů!")
-        elif ability == "sabotage" and ability not in self.abilities_used:
-            penalty = opponent.last_bank // 2
-            opponent.total_score = max(0, opponent.total_score - penalty)
-            self.abilities_used[ability] = True
-            messagebox.showinfo("Sabotáž!", f"{self.name} odebral {penalty} bodů!")
-        elif ability == "steal" and ability not in self.abilities_used:
-            stolen = opponent.last_bank // 3
-            opponent.total_score = max(0, opponent.total_score - stolen)
-            self.total_score += stolen
-            self.abilities_used[ability] = True
-            messagebox.showinfo("Krádež!", f"{self.name} ukradl {stolen} bodů!")
-        
-        return final_round
-    
-    def reset_round(self):
-        for die in self.dice:
-            die.reset()
-        self.round_score = 0
-
-class FarkleGame:
-    def __init__(self):
-        self.head_player = None
-        self.tail_player = None
-        self.current_player = None
-        self.target_score = 10000
-    
-    def start_game(self, p1, p2):
-        self.head_player = p1
-        self.tail_player = p2
-        self.current_player = p1
-        
-        abilities = ["double", "sabotage", "steal", "fast_points", "boost"]
-        self.head_player.primary_ability = choice(abilities)
-        self.tail_player.primary_ability = choice(abilities)
-        while self.tail_player.primary_ability == self.head_player.primary_ability:
-            self.tail_player.primary_ability = choice(abilities)
-        
-        messagebox.showinfo("Schopnosti přiřazeny!",
-            f"{p1.name}: {p1.primary_ability.upper()}\n"
-            f"{p2.name}: {p2.primary_ability.upper()}\n"
-            f"NOVÁ SCHOPNOST každých 5 tahů!")
-        
-        self.current_player.reset_round()
-
-    def switch_player(self):
-        self.current_player = self.tail_player if self.current_player == self.head_player else self.head_player
-        self.current_player.new_turn()
-
-    def check_winner(self):
-        return (self.head_player.total_score >= self.target_score or 
-                self.tail_player.total_score >= self.target_score)
 
 game = None
 game_window = None
@@ -194,7 +19,7 @@ def show_game_screen():
         pass
     
     game_window = Toplevel()
-    game_window.title(f"{game.current_player.name} - Farkle s SCHOPNOSMĚ")
+    game_window.title(f"{game.current_player.name} - Farkle se SCHOPNOSTMI")
     game_window.geometry("1000x700")
     game_window.resizable(False, False)
     
@@ -216,9 +41,9 @@ def show_game_screen():
         ability_status += " (NOVÁ!)"
     
     Label(top_frame, text=ability_status, font=("Arial", 12, "bold"), 
-          bg="navy", fg="purple").pack()
+          bg="navy", fg="white").pack()
     Label(top_frame, text=f"Tahy: {game.current_player.turn_count}", 
-          font=("Arial", 10), bg="navy", fg="lightblue").pack()
+          font=("Arial", 12), bg="navy", fg="white").pack()
     
     center_frame = Frame(game_window)
     center_frame.pack(fill=BOTH, expand=True, padx=20, pady=20)
@@ -270,10 +95,10 @@ def show_game_screen():
     has_score = game.current_player.has_scoring_dice()
 
     if active_count == 0:
-        Label(btn_frame, text="BONUS! Hráč hází 6 kostkami znovu", 
+        Label(btn_frame, text="Hráč musí házet znovu", 
               font=("Arial", 12, "bold"), bg="yellow", fg="green").pack(pady=10)
     elif not has_score:
-        Label(btn_frame, text="BUST! Žádné bodovací kostky", 
+        Label(btn_frame, text="Žádné bodovací kostky", 
               font=("Arial", 12, "bold"), bg="yellow", fg="red").pack(pady=10)
     else:
         Label(btn_frame, text=f"Vybráno {selected_count} kostek", 
@@ -402,12 +227,12 @@ def main_menu():
     player_names = []
     
     root = Tk()
-    root.title("FARKLE - SCHOPNOSTI KAŽDÝCH 5 TAHŮ")
+    root.title("FARKLE se SCHOPNOSTMI KAŽDÝCH 5 TAHŮ")
     root.geometry("500x400")
     root.resizable(False, False)
     
     Label(root, text="FARKLE", font=("Arial", 36, "bold"), 
-          fg="darkred", bg="gold", pady=20).pack(pady=20)
+          fg="darkred", bg="lightyellow", pady=20).pack(pady=20)
     
     Label(root, text="Pravidla:\n1=100, 5=50, 3 stejné=300+\nNOVÁ SCHOPNOST každých 5 tahů!\nCíl: 10 000 bodů", 
           font=("Arial", 14), bg="lightyellow").pack(pady=20)
