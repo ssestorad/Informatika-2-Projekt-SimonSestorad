@@ -103,7 +103,6 @@ def select_die(index):
 
 def roll_dice_action():
     global game
-    
     if any(d.selected for d in game.current_player.dice):
         messagebox.showwarning("Pozor", "Nejdříve potvrď výběr kostek!")
         return
@@ -111,9 +110,18 @@ def roll_dice_action():
     success = game.current_player.roll_dice()
     
     if not success:
-        messagebox.showerror("FARKLE!", f"Smůla! {game.current_player.name} nehodil nic a ztrácí body z tohoto kola.")
-        game.current_player.round_score = 0
-        next_player()
+        if game.current_player.get_active_ability() == "insurance":
+            saved_points = game.current_player.round_score
+            if saved_points > 0:
+                game.current_player.total_score += saved_points
+                messagebox.showinfo("POJISTKA AKTIVOVÁNA", 
+                    f"Farkle! Ale díky pojistce ti zůstává {saved_points} bodů.")
+            else:
+                messagebox.showinfo("FARKLE", "Pojistka tě nezachránila, v tomto kole jsi neměl žádné body.")
+            next_player()
+        else:
+            messagebox.showerror("FARKLE!", f"Smůla! {game.current_player.name} ztrácí vše.")
+            next_player()
     else:
         show_game_screen()
 

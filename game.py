@@ -15,7 +15,10 @@ class FarkleGame:
         self.tail_player = p2
         self.current_player = choice([self.head_player, self.tail_player])
         
-        abilities = ["double", "sabotage", "steal", "fast_points", "boost"]
+        abilities = [
+            "double", "sabotage", "steal", "fast_points", 
+            "boost", "eraser", "mirror_shield", "insurance"
+        ]
         
         p1.primary_ability = choice(abilities)
         p2.primary_ability = choice([a for a in abilities if a != p1.primary_ability])

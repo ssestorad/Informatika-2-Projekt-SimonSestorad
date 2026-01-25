@@ -126,17 +126,30 @@ class Player:
             boost = int(self.total_score * 0.1)
             self.total_score += boost
             self.abilities_used[ability] = True
-        elif ability == "sabotage" and ability not in self.abilities_used:
-            penalty = opponent.last_bank // 2
+        elif ability == "eraser" and ability not in self.abilities_used:
+            penalty = opponent.last_bank
             opponent.total_score = max(0, opponent.total_score - penalty)
+            messagebox.showinfo("Zmizík!", f"Hráč {self.name} vymazal {opponent.name} posledních {penalty} bodů!")
             self.abilities_used[ability] = True
-            messagebox.showinfo("Sabotáž!", f"{self.name} odebral {penalty} bodů!")
-        elif ability == "steal" and ability not in self.abilities_used:
-            stolen = opponent.last_bank // 3
-            opponent.total_score = max(0, opponent.total_score - stolen)
-            self.total_score += stolen
+        elif ability in ["sabotage", "steal"] and ability not in self.abilities_used:
+            if opponent.get_active_ability() == "mirror_shield":
+                messagebox.showinfo("ZRCADLOVÝ ŠTÍT!", f"{opponent.name} má štít! Útok se odrazil!")
+                penalty = int(self.total_score * 0.3)
+                self.total_score -= penalty
+                messagebox.showwarning("TREST", f"Pokus o útok tě stál {penalty} bodů!")
+            else:
+                if ability == "sabotage":
+                    penalty = int(opponent.total_score * 0.5)
+                    opponent.total_score -= penalty
+                    messagebox.showinfo("SABOTÁŽ!", f"Hráč {self.name} ubral soupeři polovinu bodů (-{penalty} b)!")
+                
+                elif ability == "steal":
+                    amount = int(opponent.total_score * 0.3)
+                    opponent.total_score -= amount
+                    self.total_score += amount
+                    messagebox.showinfo("KRÁDEŽ!", f"Ukradl jsi {opponent.name} 30 % bodů (+{amount} b)!")
+            
             self.abilities_used[ability] = True
-            messagebox.showinfo("Krádež!", f"{self.name} ukradl {stolen} bodů!")
 
         self.last_bank = final_gain
         self.round_score = 0
