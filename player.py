@@ -2,6 +2,7 @@ from tkinter import *
 from tkinter import messagebox
 from random import *
 from random import randint, choice
+from collections import Counter
 from dice import Dice
 
 class Player:
@@ -38,34 +39,48 @@ class Player:
     
     def calculate_score(self):
         active_values = [d.value for d in self.dice if not d.kept and d.value > 0]
-        if not active_values: return 0, []
+        if not active_values: 
+            return 0, []
 
-        counts = {1:0, 2:0, 3:0, 4:0, 5:0, 6:0}
-        for val in active_values: counts[val] += 1
+        counts = Counter(active_values)
+        num_dice = len(active_values)
+        score = 0
+        combos = []
 
-        score = 0; combos = []
+        for val, count in counts.items():
+            if count == 6:
+                return 5000, ["6 stejných: 5000"]
 
+        if num_dice == 6 and len(counts) == 6:
+            return 2000, ["Postupka: 2000"]
+
+        pairs = 0
+        for count in counts.values():
+            pairs += count // 2
+        if pairs == 3 and num_dice == 6:
+            return 1000, ["3x dvojice: 1000"]
+
+        temp_counts = dict(counts)
         for i in range(1, 7):
-            if counts[i] >= 3:
-                sets = counts[i] // 3
+            if temp_counts.get(i, 0) >= 3:
                 if i == 1:
-                    points = sets * 1000
-                    combos.append(f"3x1: {points}")
+                    points = 1000
                 else:
-                    points = sets * i * 100
-                    combos.append(f"{sets}x{i}: {points}")
+                    points = i * 100
+            
                 score += points
-                counts[i] -= sets * 3
+                combos.append(f"3x {i}: {points}")
+                temp_counts[i] -= 3
 
-        ones = min(counts[1], 3)
-        fives = min(counts[5], 3)
-
-        if ones > 0:
-            score += ones * 100
-            combos.append(f"1ky: {ones}x100={ones*100}")
-        if fives > 0:
-            score += fives * 50
-            combos.append(f"5ky: {fives}x50={fives*50}")
+        if temp_counts.get(1, 0) > 0:
+            p = temp_counts[1] * 100
+            score += p
+            combos.append(f"{temp_counts[1]}x 1: {p}")
+        
+        if temp_counts.get(5, 0) > 0:
+            p = temp_counts[5] * 50
+            score += p
+            combos.append(f"{temp_counts[5]}x 5: {p}")
 
         return score, combos
     
