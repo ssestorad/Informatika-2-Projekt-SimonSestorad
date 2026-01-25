@@ -35,6 +35,9 @@ Cílem hry je být **první hráč**, který dosáhne předem stanoveného počt
 | 3 × pětka (5)    | 500  |
 | 3 × šestka (6)   | 600  |
 | 3 × jednička (1) | 1000 |
+| 3 × dvojice (např. 2-2-2 a 5-5-5) | 1000 |
+| Postupka (1-2-3-4-5-6) | 2000 |
+| 6 stejných čísel | 5000 |
 
 ---
 
