@@ -6,242 +6,233 @@ from player import Player
 from dice import Dice
 from game import FarkleGame
 
-
 game = None
+root = None
 game_window = None
 player_names = []
 
 def show_game_screen():
-    global game_window
-    try:
+    global game_window, game
+    if game_window:
         game_window.destroy()
-    except:
-        pass
     
     game_window = Toplevel()
     game_window.title(f"{game.current_player.name} - Farkle se SCHOPNOSTMI")
-    game_window.geometry("1000x700")
+    game_window.geometry("1100x750")
     game_window.resizable(False, False)
     
-    top_frame = Frame(game_window, bg="navy", height=60)
+    top_frame = Frame(game_window, bg="navy", height=70)
     top_frame.pack(fill=X)
     top_frame.pack_propagate(False)
     
-    opponent = game.head_player if game.current_player == game.tail_player else game.tail_player
+    opponent = game.get_opponent()
     Label(top_frame, text=f"{game.current_player.name}: {game.current_player.total_score:,}", 
-          font=("Arial", 16, "bold"), bg="navy", fg="yellow").pack(side=LEFT, padx=20, pady=10)
+          font=("Arial", 16, "bold"), bg="navy", fg="yellow").pack(side=LEFT, padx=20)
     Label(top_frame, text=f"{opponent.name}: {opponent.total_score:,}", 
-          font=("Arial", 16, "bold"), bg="navy", fg="white").pack(side=RIGHT, padx=20, pady=10)
+          font=("Arial", 16, "bold"), bg="navy", fg="white").pack(side=RIGHT, padx=20)
     
     ability = game.current_player.get_active_ability()
     ability_status = f"SCHOPNOST: {ability.upper()}"
     if ability in game.current_player.abilities_used:
         ability_status += " (použito)"
-    elif game.current_player.turn_count % 5 == 0:
-        ability_status += " (NOVÁ!)"
     
-    Label(top_frame, text=ability_status, font=("Arial", 12, "bold"), 
-          bg="navy", fg="white").pack()
-    Label(top_frame, text=f"Tahy: {game.current_player.turn_count}", 
-          font=("Arial", 12), bg="navy", fg="white").pack()
-    
+    Label(top_frame, text=ability_status, font=("Arial", 12, "bold"), bg="navy", fg="cyan").pack()
+    Label(top_frame, text=f"Tah: {game.current_player.turn_count}", font=("Arial", 10), bg="navy", fg="white").pack()
+
     center_frame = Frame(game_window)
     center_frame.pack(fill=BOTH, expand=True, padx=20, pady=20)
 
-    score_frame = Frame(center_frame, bg="#e0e0e0", relief="ridge", bd=2)
+    score_frame = Frame(center_frame, bg="#f0f0f0", relief="ridge", bd=2, width=300)
     score_frame.pack(side=LEFT, fill=Y, padx=(0, 20))
+    score_frame.pack_propagate(False)
 
-    current_score, combos = game.current_player.calculate_score()
-    score_text = f"Aktuální hod: {current_score:,} bodů\n\n"
-    if combos:
-        score_text += "Kombinace:\n" + "\n".join(f"• {c}" for c in combos)
-    else:
-        score_text += "ŽÁDNÉ BODOVACÍ KOSTKY!"
+    sel_score, sel_combos = game.current_player.calculate_score(only_selected=True)
     
-    score_text += f"\n\nKolo: {game.current_player.round_score:,}"
-    score_text += f"\nCelkem: {game.current_player.total_score:,}"
-    score_text += f"\nCíl: 10 000"
+    score_text = f"VYBRÁNO K ODLOŽENÍ:\n{sel_score} bodů\n\n"
+    if sel_combos:
+        score_text += "\n".join(f"✓ {c}" for c in sel_combos)
+    
+    score_text += f"\n\n------------------\nNASBÍRÁNO V KOLE:\n{game.current_player.round_score} bodů"
 
-    Label(score_frame, text=score_text, font=("Consolas", 12), 
-          bg="white", justify=LEFT, padx=15, pady=15).pack(pady=10)
+    Label(score_frame, text=score_text, font=("Consolas", 11), bg="white", 
+          justify=LEFT, anchor="nw", padx=10, pady=10).pack(fill=BOTH, expand=True)
 
     dice_frame = Frame(center_frame, bg="white", relief="ridge", bd=2)
     dice_frame.pack(side=RIGHT, fill=BOTH, expand=True)
 
-    Label(dice_frame, text="KOSTKY (klikni pro výběr)", 
-          font=("Arial", 14, "bold"), bg="white").pack(pady=10)
-
-    dice_grid = Frame(dice_frame)
-    dice_grid.pack(pady=20)
+    dice_grid = Frame(dice_frame, bg="white")
+    dice_grid.pack(pady=40)
 
     for i in range(6):
         die = game.current_player.dice[i]
-        if not die.kept:
-            color = "orange" if die.selected else "lightblue"
-            status = "VYBRÁNO" if die.selected else "AKTIVNÍ"
+        
+        if die.kept:
+            color, status, state = "#d3d3d3", "ULOŽENO", DISABLED
+        elif die.selected:
+            color, status, state = "orange", "VYBRÁNO", NORMAL
+        else:
+            color, status, state = "lightblue", "AKTIVNÍ", NORMAL
             
-            btn = Button(dice_grid, text=f"{status}\n\n{die.get_display()}", 
-                        font=("Courier", 14, "bold"),
-                        width=10, height=4, bg=color, fg="black",
-                        command=lambda idx=i: select_die(idx))
-            btn.grid(row=i//3, column=i%3, padx=8, pady=8)
+        btn = Button(dice_grid, text=f"{status}\n\n{die.get_display()}", 
+                    font=("Courier", 14, "bold"), width=12, height=5,
+                    bg=color, state=state, command=lambda idx=i: select_die(idx))
+        btn.grid(row=i//3, column=i%3, padx=10, pady=10)
 
-    btn_frame = Frame(game_window, bg="#c0c0c0", height=80)
-    btn_frame.pack(fill=X, pady=10)
-    btn_frame.pack_propagate(False)
-
-    active_count = game.current_player.get_active_count()
-    selected_count = sum(1 for d in game.current_player.dice if d.selected)
-    has_score = game.current_player.has_scoring_dice()
-
-    if active_count == 0:
-        Label(btn_frame, text="Hráč musí házet znovu", 
-              font=("Arial", 12, "bold"), bg="yellow", fg="green").pack(pady=10)
-    elif not has_score:
-        Label(btn_frame, text="Žádné bodovací kostky", 
-              font=("Arial", 12, "bold"), bg="yellow", fg="red").pack(pady=10)
-    else:
-        Label(btn_frame, text=f"Vybráno {selected_count} kostek", 
-              font=("Arial", 12, "bold"), bg="lightblue").pack(pady=10)
-
+    btn_frame = Frame(game_window, bg="#c0c0c0", height=100)
+    btn_frame.pack(fill=X)
+    
     action_frame = Frame(btn_frame, bg="#c0c0c0")
-    action_frame.pack(pady=10)
+    action_frame.pack(pady=20)
 
-    if has_score and selected_count > 0:
-        Button(action_frame, text="ODLOŽ VYBRANÉ", font=("Arial", 12, "bold"),
-               command=keep_dice, bg="green", fg="white", width=15, height=2).pack(side=LEFT, padx=10)
+    Button(action_frame, text="HÁZEJ", font=("Arial", 12, "bold"), bg="blue", fg="white",
+           width=15, height=2, command=roll_dice_action).pack(side=LEFT, padx=10)
 
-    Button(action_frame, text="HAZEJ", font=("Arial", 12, "bold"),
-           command=roll_dice_action, bg="blue", fg="white", width=15, height=2).pack(side=LEFT, padx=10)
+    if sel_score > 0:
+        Button(action_frame, text="POTVRĎ VÝBĚR", font=("Arial", 12, "bold"), bg="green", fg="white",
+               width=15, height=2, command=keep_dice).pack(side=LEFT, padx=10)
 
-    Button(action_frame, text="BANK (Uložit)", font=("Arial", 12, "bold"),
-           command=bank_points_action, bg="orange", fg="white", width=15, height=2).pack(side=LEFT, padx=10)
-
-    if not has_score:
-        Button(action_frame, text="DALŠÍ HRÁČ", font=("Arial", 12, "bold"),
-               command=next_player, bg="red", fg="white", width=15, height=2).pack(side=LEFT, padx=10)
-
-    game_window.wait_window()
+    if game.current_player.round_score >= 750 or (game.current_player.round_score > 0 and any(d.kept for d in game.current_player.dice)):
+        Button(action_frame, text="BANK", font=("Arial", 12, "bold"), bg="orange", fg="white",
+               width=15, height=2, command=bank_points_action).pack(side=LEFT, padx=10)
 
 def select_die(index):
-    if index < 6 and not game.current_player.dice[index].kept:
-        game.current_player.dice[index].selected = not game.current_player.dice[index].selected
+    die = game.current_player.dice[index]
+    if not die.kept and die.value > 0:
+        die.selected = not die.selected
         show_game_screen()
 
 def roll_dice_action():
-    """VŽDY hází 6 kostek na začátku tahu, pak jen aktivní"""
-    active_count = game.current_player.get_active_count()
+    global game
     
-    if active_count == 0:
-        game.current_player.roll_dice(6)
+    if any(d.selected for d in game.current_player.dice):
+        messagebox.showwarning("Pozor", "Nejdříve potvrď výběr kostek!")
+        return
+
+    success = game.current_player.roll_dice()
+    
+    if not success:
+        messagebox.showerror("FARKLE!", f"Smůla! {game.current_player.name} nehodil nic a ztrácí body z tohoto kola.")
+        game.current_player.round_score = 0
+        next_player()
     else:
-        game.current_player.roll_dice(active_count)
-    
-    show_game_screen()
+        show_game_screen()
 
 def keep_dice():
-    score, _ = game.current_player.calculate_score()
-    if score > 0:
-        game.current_player.round_score += score
-    game.current_player.keep_selected()
-    roll_dice_action()
+    global game
+    points, is_hot = game.current_player.confirm_selection()
+    if is_hot:
+        messagebox.showinfo("HORKÉ KOSTKY!", "Házíš znovu všemi šesti!")
+    show_game_screen()
 
 def bank_points_action():
-    if game.current_player.round_score > 0:
-        opponent = game.head_player if game.current_player == game.tail_player else game.tail_player
-        banked = game.current_player.bank_points(opponent)
-        messagebox.showinfo("BANK", f"Uloženo {banked:,} bodů!")
+    global game, root
+    opponent = game.get_opponent()
+    banked = game.current_player.bank_points(opponent)
     
-    if game.check_winner():
-        messagebox.showinfo("VÍTĚZ!", f"{game.current_player.name} vyhrál!")
-        root.quit()
+    messagebox.showinfo("BANK", f"Hráč {game.current_player.name} uložil {banked} bodů.")
+    
+    winner = game.check_winner()
+    if winner:
+        messagebox.showinfo("VÍTĚZ!", f"Gratulujeme! {winner.name} vyhrál!")
+        root.destroy()
     else:
         next_player()
 
 def next_player():
-    game.current_player.reset_round()
+    global game
     game.switch_player()
-    game.current_player.reset_round()
+    for die in game.current_player.dice:
+        die.reset_full()
     show_game_screen()
 
 def start_game():
-    global game
+    global game, root
     game = FarkleGame()
     p1 = Player(player_names[0])
     p2 = Player(player_names[1])
     game.start_game(p1, p2)
     show_game_screen()
 
-def player2_screen(root):
-    root.withdraw()
+def player2_screen(root_win):
+    global player_names
+    root_win.withdraw()
     win = Toplevel()
     win.title("Hráč 2")
     win.geometry("400x300")
-    
-    Label(win, text="Jméno hráče 2:", font=("Arial", 18, "bold"), 
+  
+    Label(win, text="Jméno hráče 2:", font=("Arial", 18, "bold"),
           bg="lightblue").pack(pady=30)
-    
+
     entry = Entry(win, font=("Arial", 16), width=20)
     entry.pack(pady=10)
-    entry.focus()
-    
+    entry.focus()  
+
     def submit():
         name = entry.get().strip()
         if name and name != player_names[0]:
             player_names.append(name)
             win.destroy()
             start_game()
+
         else:
             messagebox.showerror("Chyba", "Zadejte jiný název!")
-    
+
+   
+
     Button(win, text="START HRY", font=("Arial", 16, "bold"),
            command=submit, bg="green", fg="white").pack(pady=20)
 
-def player1_screen(root):
-    root.withdraw()
+def player1_screen(root_win):
+    global player_names
+    root_win.withdraw()
     win = Toplevel()
     win.title("Hráč 1")
-    win.geometry("400x300")
-    
-    Label(win, text="Jméno hráče 1:", font=("Arial", 18, "bold"), 
-          bg="lightgreen").pack(pady=30)
-    
+    win.geometry("400x300")   
+
+    Label(win, text="Jméno hráče 1:", font=("Arial", 18, "bold"),
+          bg="lightgreen").pack(pady=30)  
+
     entry = Entry(win, font=("Arial", 16), width=20)
     entry.pack(pady=10)
-    entry.focus()
-    
+    entry.focus()  
+
     def submit():
         name = entry.get().strip()
         if name:
             player_names.append(name)
             win.destroy()
             player2_screen(root)
+
         else:
-            messagebox.showerror("Chyba", "Zadejte jméno!")
-    
+            messagebox.showerror("Chyba", "Zadejte jméno!")  
+
     Button(win, text="Pokračovat", font=("Arial", 16, "bold"),
            command=submit, bg="blue", fg="white").pack(pady=20)
 
 def main_menu():
     global player_names, root
     player_names = []
-    
+  
+
     root = Tk()
     root.title("FARKLE se SCHOPNOSTMI KAŽDÝCH 5 TAHŮ")
     root.geometry("500x400")
     root.resizable(False, False)
-    
-    Label(root, text="FARKLE", font=("Arial", 36, "bold"), 
+
+   
+    Label(root, text="FARKLE", font=("Arial", 36, "bold"),
           fg="darkred", bg="lightyellow", pady=20).pack(pady=20)
-    
-    Label(root, text="Pravidla:\n1=100, 5=50, 3 stejné=300+\nNOVÁ SCHOPNOST každých 5 tahů!\nCíl: 10 000 bodů", 
+
+    Label(root, text="Pravidla:\n1=100, 5=50, 3 stejné=300+\nNOVÁ SCHOPNOST každých 5 tahů!\nCíl: 10 000 bodů",
           font=("Arial", 14), bg="lightyellow").pack(pady=20)
-    
+
     Button(root, text="ZAČÍT HRU", font=("Arial", 20, "bold"),
            command=lambda: player1_screen(root),
            bg="#FF4500", fg="white", width=15, height=3).pack(pady=30)
-    
+
     root.mainloop()
+
+
 
 if __name__ == "__main__":
     main_menu()
