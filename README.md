@@ -58,6 +58,9 @@ Cílem hry je být **první hráč**, který dosáhne předem stanoveného počt
 * **10% BOOST** – Získáš **+10 % ke svému aktuálnímu celkovému skóre**.
 * **SABOTÁŽ** – Vybranému soupeři se **sníží jeho aktuální bank o 50 %**.
 * **KRÁDEŽ** – Ukradneš **30 % aktuálního banku soupeře** a přičteš si je ke svému banku.
+* **POJISTKA** – Pokud hodíš *Farkle*, nepřijdeš o body nasbírané v daném kole, ale **automaticky se ti uloží**.
+* **ZRCADLOVÝ ŠTÍT** – Pasivní obrana. Pokud na tebe někdo použije Sabotáž nebo Krádež, **efekt se obrátí proti němu**.
+* **ZMIZÍK** – Úplně vymažeš soupeřův **poslední zapsaný bank**.
 
 ---
 
