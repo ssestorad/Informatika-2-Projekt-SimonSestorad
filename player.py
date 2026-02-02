@@ -18,7 +18,6 @@ class Player:
         self.dice = [Dice() for _ in range(6)]
 
     def new_turn(self):
-        """Příprava na nový tah hráče"""
         self.turn_count += 1
         for d in self.dice:
             d.reset_full()
@@ -32,7 +31,6 @@ class Player:
                 f"{self.name}: {self.secondary_ability.upper()}!\n(Tah #{self.turn_count})")
 
     def roll_dice(self):
-        """Hází pouze těmi kostkami, které nejsou odložené (kept)"""
         for d in self.dice:
             if not d.kept:
                 d.roll()
@@ -44,10 +42,6 @@ class Player:
         return True
 
     def calculate_score(self, only_selected=False):
-        """
-        Vypočítá skóre. 
-        Pokud only_selected=True, počítá jen ty, co hráč právě označil k odložení.
-        """
         if only_selected:
             active_values = [d.value for d in self.dice if d.selected and not d.kept]
         else:
@@ -82,10 +76,6 @@ class Player:
         return score, combos
 
     def confirm_selection(self):
-        """
-        Potvrdí vybrané kostky, přičte jejich body a zkontroluje 'Horké kostky'.
-        Vrací (získané_body, horké_kostky_boolean)
-        """
         points, _ = self.calculate_score(only_selected=True)
         
         if points == 0:
@@ -107,7 +97,6 @@ class Player:
         return points, is_hot
 
     def bank_points(self, opponent):
-        """Uloží round_score do total_score a aplikuje schopnosti"""
         if self.round_score == 0: return 0
         
         final_gain = self.round_score
@@ -159,11 +148,9 @@ class Player:
         return self.secondary_ability or self.primary_ability
 
     def reset_round(self):
-        """Resetuje kostky a body za aktuální kolo (tah)"""
         for d in self.dice:
             d.reset_full()
         self.round_score = 0
 
     def get_active_count(self):
-        """Vrací počet kostek, které nejsou odložené (kept)"""
         return sum(1 for d in self.dice if not d.kept)
