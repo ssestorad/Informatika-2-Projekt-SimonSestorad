@@ -2,11 +2,22 @@ from tkinter import *
 from tkinter import messagebox
 from random import randint, choice
 from math import radians, cos, sin
+import sys
+import os
+import json
 from player import Player
 from game import FarkleGame
 from abilities import ABILITY_NAMES
 from strings import STRINGS
 from ai import AI_PROFILES, pick_scoring_dice_indices, should_bank
+import sound
+
+if sys.platform == "win32":
+    try:
+        import ctypes
+        ctypes.windll.shcore.SetProcessDpiAwareness(1)
+    except Exception:
+        pass
 
 # ---- vizuální styl: plsťový herní stůl ----
 FELT_950 = "#0e2019"
@@ -43,6 +54,54 @@ settings = {
     "resolution": "1100x900",
 }
 
+SETTINGS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "settings.json")
+
+def load_settings():
+    if not os.path.exists(SETTINGS_FILE):
+        return
+    try:
+        with open(SETTINGS_FILE, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except (OSError, ValueError):
+        return
+
+    if data.get("language") in STRINGS:
+        settings["language"] = data["language"]
+    if isinstance(data.get("target_score"), int) and data["target_score"] > 0:
+        settings["target_score"] = data["target_score"]
+    if isinstance(data.get("bank_minimum"), int) and 0 < data["bank_minimum"] <= settings["target_score"]:
+        settings["bank_minimum"] = data["bank_minimum"]
+    if data.get("resolution") in RESOLUTIONS:
+        settings["resolution"] = data["resolution"]
+
+def save_settings():
+    try:
+        with open(SETTINGS_FILE, "w", encoding="utf-8") as f:
+            json.dump(settings, f, ensure_ascii=False, indent=2)
+    except OSError:
+        pass
+
+def build_app_icon():
+    """Vykresli malou kostku (stejny styl jako kostky ve hre) primo pres PhotoImage,
+    aby ikona okna/taskbaru nepotrebovala externi soubor."""
+    size = 32
+    img = PhotoImage(width=size, height=size)
+    img.put(FELT_950, to=(0, 0, size, size))
+
+    inset = 4
+    img.put(IVORY_100, to=(inset, inset, size - inset, size - inset))
+    corner = 3
+    for cx, cy in [(inset, inset), (size - inset - corner, inset),
+                   (inset, size - inset - corner), (size - inset - corner, size - inset - corner)]:
+        img.put(FELT_950, to=(cx, cy, cx + corner, cy + corner))
+
+    pip_r = 2
+    for fx, fy in [(0.28, 0.28), (0.72, 0.28), (0.5, 0.5), (0.28, 0.72), (0.72, 0.72)]:
+        cx, cy = int(size * fx), int(size * fy)
+        img.put(INK_900, to=(cx - pip_r, cy - pip_r, cx + pip_r, cy + pip_r))
+
+    return img
+
 # Udalosti se ukladaji jako (klic, {parametry}) a prekladaji az pri vykresleni,
 # aby prepnuti jazyka v nastaveni fungovalo bez zasahu do herni logiky.
 ABILITY_KEY_FIELDS = {
@@ -59,6 +118,7 @@ player_names = []
 log_events = []
 ai_player = None
 ai_profile = None
+app_icon = None
 
 def t(key, **kwargs):
     template = STRINGS[settings["language"]][key]
@@ -84,31 +144,68 @@ def format_combo(combo):
     _, points = combo
     return STRINGS[lang][f"combo_{kind}"].format(points=points)
 
-def push_event(key, **params):
+EVENT_SOUNDS = {
+    "farkle": sound.play_farkle,
+    "insurance_failed": sound.play_farkle,
+    "insurance_saved": sound.play_ability,
+    "banked": sound.play_bank,
+    "extra_turn": sound.play_ability,
+    "new_ability": sound.play_ability,
+    "hot_dice": sound.play_ability,
+    "confirm_first": sound.play_warning,
+}
+
+def _add_events(events):
     global log_events
-    log_events.append((key, params))
+    for event in events:
+        play_sound = EVENT_SOUNDS.get(event[0])
+        if play_sound:
+            play_sound()
+    log_events.extend(events)
     log_events[:] = log_events[-30:]
 
+def push_event(key, **params):
+    _add_events([(key, params)])
+
 def drain_events(*sources):
-    global log_events
     for source in sources:
         if source:
-            log_events.extend(source)
-            log_events[:] = log_events[-30:]
+            _add_events(source)
             source.clear()
 
+def lighten(hex_color, amount=0.18):
+    hex_color = hex_color.lstrip("#")
+    r, g, b = int(hex_color[0:2], 16), int(hex_color[2:4], 16), int(hex_color[4:6], 16)
+    r = int(r + (255 - r) * amount)
+    g = int(g + (255 - g) * amount)
+    b = int(b + (255 - b) * amount)
+    return f"#{r:02x}{g:02x}{b:02x}"
+
+def darken(hex_color, amount=0.08):
+    hex_color = hex_color.lstrip("#")
+    r, g, b = int(hex_color[0:2], 16), int(hex_color[2:4], 16), int(hex_color[4:6], 16)
+    r, g, b = int(r * (1 - amount)), int(g * (1 - amount)), int(b * (1 - amount))
+    return f"#{r:02x}{g:02x}{b:02x}"
+
 def flat_button(parent, text, bg, fg, command, font_size=11):
-    return Button(parent, text=text, font=(BODY_FONT, font_size, "bold"), bg=bg, fg=fg,
-                  activebackground=bg, activeforeground=fg, relief=FLAT, bd=0,
-                  padx=26, pady=12, cursor="hand2", command=command)
+    hover_bg = lighten(bg)
+    btn = Button(parent, text=text, font=(BODY_FONT, font_size, "bold"), bg=bg, fg=fg,
+                 activebackground=hover_bg, activeforeground=fg, relief=FLAT, bd=0,
+                 padx=26, pady=12, cursor="hand2", command=command)
+    btn.bind("<Enter>", lambda e: btn.configure(bg=hover_bg))
+    btn.bind("<Leave>", lambda e: btn.configure(bg=bg))
+    return btn
 
 def choice_chip(parent, text, selected, on_click):
     border_color = GOLD_500 if selected else FELT_700
+    hover_bg = darken(IVORY_100)
     wrapper = Frame(parent, bg=border_color, padx=3, pady=3)
     label = Label(wrapper, text=text, font=(MONO_FONT, 10, "bold"), bg=IVORY_100, fg=FELT_700,
                   padx=14, pady=8, cursor="hand2")
     label.pack()
     label.bind("<Button-1>", lambda e: on_click())
+    label.bind("<Enter>", lambda e: label.configure(bg=hover_bg))
+    label.bind("<Leave>", lambda e: label.configure(bg=IVORY_100))
     return wrapper
 
 def is_ai_turn():
@@ -193,6 +290,7 @@ def language_button(parent, lang_code, draw_fn, label_key, on_change):
 
     def select(event=None):
         settings["language"] = lang_code
+        save_settings()
         on_change()
 
     canvas.bind("<Button-1>", select)
@@ -330,12 +428,12 @@ def show_game_screen():
             canvas.bind("<Button-1>", lambda e, idx=i: select_die(idx))
 
     # ---------- event log ----------
-    log_strip = Frame(content, bg=INK_900, height=100)
+    log_strip = Frame(content, bg=INK_900, height=132)
     log_strip.pack(fill=X)
     log_strip.pack_propagate(False)
 
     log_pad = Frame(log_strip, bg=INK_900)
-    log_pad.pack(fill=BOTH, expand=True, padx=26, pady=10)
+    log_pad.pack(fill=BOTH, expand=True, padx=26, pady=12)
 
     if log_events:
         for key, params in log_events[-4:]:
@@ -347,7 +445,7 @@ def show_game_screen():
             else:
                 color = GOLD_300
             Label(log_pad, text=text, font=(MONO_FONT, 10), bg=INK_900, fg=color,
-                  anchor="w", justify=LEFT).pack(fill=X)
+                  anchor="w", justify=LEFT).pack(fill=X, pady=1)
     else:
         Label(log_pad, text=t("log_empty"), font=(MONO_FONT, 10), bg=INK_900, fg=IVORY_300,
               anchor="w", justify=LEFT).pack(fill=X)
@@ -412,6 +510,7 @@ def roll_dice_action():
         game.farkle_pending = True
         show_game_screen()
     else:
+        sound.play_roll()
         show_game_screen()
 
 def continue_after_farkle():
@@ -433,6 +532,7 @@ def ability_list(player):
 def show_end_screen(winner):
     global game_window, root
 
+    sound.play_win()
     old_content = getattr(game_window, "content_frame", None)
     content = Frame(game_window, bg=FELT_950)
 
@@ -595,12 +695,19 @@ def ai_decide_step():
     else:
         game_window.after(AI_STEP_DELAY_MS, ai_roll_step)
 
+def back_to_menu(win, root_win):
+    global player_names
+    player_names = []
+    win.destroy()
+    render_main_menu()
+    root_win.deiconify()
+
 def player2_screen(root_win):
     global player_names
     root_win.withdraw()
     win = Toplevel()
     win.title(t("win_title_p2"))
-    win.geometry("360x300")
+    win.geometry("360x340")
     win.configure(bg=FELT_950)
 
     pad = Frame(win, bg=FELT_800)
@@ -628,14 +735,15 @@ def player2_screen(root_win):
 
     entry.bind("<Return>", lambda e: submit())
 
-    flat_button(inner, t("btn_start_game"), GOLD_500, INK_900, submit, font_size=12).pack(fill=X, pady=(20, 0))
+    flat_button(inner, t("btn_start_game"), GOLD_500, INK_900, submit, font_size=12).pack(fill=X, pady=(20, 10))
+    flat_button(inner, t("btn_back"), VIOLET_500, IVORY_100, lambda: back_to_menu(win, root_win), font_size=12).pack(fill=X)
 
 def player1_screen(root_win):
     global player_names
     root_win.withdraw()
     win = Toplevel()
     win.title(t("win_title_p1"))
-    win.geometry("360x300")
+    win.geometry("360x340")
     win.configure(bg=FELT_950)
 
     pad = Frame(win, bg=FELT_800)
@@ -663,12 +771,13 @@ def player1_screen(root_win):
 
     entry.bind("<Return>", lambda e: submit())
 
-    flat_button(inner, t("btn_continue"), GOLD_500, INK_900, submit, font_size=12).pack(fill=X, pady=(20, 0))
+    flat_button(inner, t("btn_continue"), GOLD_500, INK_900, submit, font_size=12).pack(fill=X, pady=(20, 10))
+    flat_button(inner, t("btn_back"), VIOLET_500, IVORY_100, lambda: back_to_menu(win, root_win), font_size=12).pack(fill=X)
 
 def ai_setup_screen(root_win):
     root_win.withdraw()
     win = Toplevel()
-    win.geometry("380x440")
+    win.geometry("380x480")
     win.resizable(False, False)
     win.configure(bg=FELT_950)
 
@@ -717,7 +826,8 @@ def ai_setup_screen(root_win):
 
         entry.bind("<Return>", lambda e: submit())
 
-        flat_button(inner, t("btn_start_game"), GOLD_500, INK_900, submit, font_size=12).pack(fill=X)
+        flat_button(inner, t("btn_start_game"), GOLD_500, INK_900, submit, font_size=12).pack(fill=X, pady=(0, 10))
+        flat_button(inner, t("btn_back"), VIOLET_500, IVORY_100, lambda: back_to_menu(win, root_win), font_size=12).pack(fill=X)
 
         content.place(x=0, y=0, relwidth=1, relheight=1)
         if old is not None:
@@ -792,6 +902,7 @@ def settings_screen(root_win):
             settings["target_score"] = target
             settings["bank_minimum"] = bank_min
             settings["resolution"] = res_var.get()
+            save_settings()
             win.destroy()
             root_win.deiconify()
             render_main_menu()
@@ -833,7 +944,7 @@ def render_main_menu():
     flat_button(inner, t("btn_pvp"), GOLD_500, INK_900, lambda: player1_screen(root), font_size=13).pack(fill=X, pady=(0, 10))
     flat_button(inner, t("btn_pva"), IVORY_100, INK_900, lambda: ai_setup_screen(root), font_size=13).pack(fill=X, pady=(0, 10))
     flat_button(inner, t("btn_settings"), VIOLET_500, IVORY_100, lambda: settings_screen(root), font_size=13).pack(fill=X, pady=(0, 10))
-    flat_button(inner, t("btn_quit"), FELT_700, IVORY_300, root.destroy, font_size=13).pack(fill=X)
+    flat_button(inner, t("btn_quit"), FELT_950, IVORY_300, root.destroy, font_size=13).pack(fill=X)
 
     body.place(x=0, y=0, relwidth=1, relheight=1)
     if old_content is not None:
@@ -841,13 +952,17 @@ def render_main_menu():
     root.content_frame = body
 
 def main_menu():
-    global player_names, root
+    global player_names, root, app_icon
     player_names = []
+    load_settings()
 
     root = Tk()
-    root.geometry("460x580")
+    root.geometry("480x720")
     root.resizable(False, False)
     root.configure(bg=FELT_950)
+
+    app_icon = build_app_icon()
+    root.iconphoto(True, app_icon)
 
     render_main_menu()
 
