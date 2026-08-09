@@ -313,6 +313,7 @@ def show_game_screen():
         game_window.geometry(settings["resolution"])
         game_window.resizable(False, False)
         game_window.configure(bg=FELT_950)
+        game_window.bind("<KeyPress>", handle_game_shortcut)
 
     game_window.title(f"{game.current_player.name} - {t('game_window_suffix')}")
 
@@ -514,7 +515,9 @@ def _build_game_screen():
     action_row.pack(fill=X)
 
     action_pad = Frame(action_row, bg=FELT_950)
-    action_pad.pack(pady=18)
+    action_pad.pack(pady=(18, 4))
+
+    Label(action_row, text=t("shortcuts_hint"), font=(MONO_FONT, 8), bg=FELT_950, fg=IVORY_300).pack(pady=(0, 10))
 
     game_window.widgets = {
         "you": you_w, "opp": opp_w,
@@ -559,6 +562,33 @@ def _update_game_screen():
     _render_dice_grid(W["dice_grid"])
     _render_log(W["log_pad"])
     _render_actions(W["action_pad"], sel_score)
+
+    # Focus na okno (ne na konkretni tlacitko) - klavesove zkratky tak
+    # spolehlive chytne handle_game_shortcut navazany na cele okno.
+    game_window.focus_set()
+
+def handle_game_shortcut(event):
+    """Klavesove zkratky pro rychlejsi hrani: Enter = hazej / pokracuj po
+    farklu, mezernik = bank, C = potvrd vyber. Kazda jen tehdy, kdyz je
+    dana akce skutecne dostupna (stejne podminky jako u tlacitek)."""
+    if game is None or is_ai_turn():
+        return
+
+    if game.farkle_pending:
+        if event.keysym in ("Return", "space"):
+            continue_after_farkle()
+        return
+
+    key = event.keysym
+    if key == "Return":
+        roll_dice_action()
+    elif key == "space":
+        if game.current_player.round_score >= settings["bank_minimum"]:
+            bank_points_action()
+    elif key.lower() == "c":
+        sel_score, _ = game.current_player.calculate_score(only_selected=True)
+        if sel_score > 0:
+            keep_dice()
 
 def select_die(index):
     die = game.current_player.dice[index]

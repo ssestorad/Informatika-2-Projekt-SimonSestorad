@@ -60,6 +60,7 @@ STRINGS = {
         "btn_roll": "HÁZEJ",
         "btn_confirm": "POTVRĎ VÝBĚR",
         "btn_bank": "BANK",
+        "shortcuts_hint": "Enter = házej / pokračuj · Mezerník = bank · C = potvrď výběr",
         "log_empty": "Hra začíná...",
 
         # obrazovka výsledků
@@ -157,6 +158,7 @@ STRINGS = {
         "btn_roll": "ROLL",
         "btn_confirm": "CONFIRM SELECTION",
         "btn_bank": "BANK",
+        "shortcuts_hint": "Enter = roll / continue · Space = bank · C = confirm selection",
         "log_empty": "The game begins...",
 
         "end_winner": "WINNER: {name}",
@@ -251,6 +253,7 @@ STRINGS = {
         "btn_roll": "הטל קוביות",
         "btn_confirm": "אשר בחירה",
         "btn_bank": "הפקד",
+        "shortcuts_hint": "Enter = הטל / המשך · רווח = הפקד · C = אשר בחירה",
         "log_empty": "המשחק מתחיל...",
 
         "end_winner": "המנצח: {name}",
