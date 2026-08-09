@@ -6,6 +6,7 @@ from player import Player
 from game import FarkleGame
 from abilities import ABILITY_NAMES
 from strings import STRINGS
+from ai import AI_PROFILES, pick_scoring_dice_indices, should_bank
 
 # ---- vizuální styl: plsťový herní stůl ----
 FELT_950 = "#0e2019"
@@ -42,18 +43,22 @@ settings = {
     "resolution": "1100x900",
 }
 
-# события se ukladaji jako (klic, {parametry}) a prekladaji az pri vykresleni,
+# Udalosti se ukladaji jako (klic, {parametry}) a prekladaji az pri vykresleni,
 # aby prepnuti jazyka v nastaveni fungovalo bez zasahu do herni logiky.
 ABILITY_KEY_FIELDS = {
     "new_ability": ["ability_key"],
     "primary_abilities": ["a1_key", "a2_key"],
 }
 
+AI_STEP_DELAY_MS = 900
+
 game = None
 root = None
 game_window = None
 player_names = []
 log_events = []
+ai_player = None
+ai_profile = None
 
 def t(key, **kwargs):
     template = STRINGS[settings["language"]][key]
@@ -96,6 +101,18 @@ def flat_button(parent, text, bg, fg, command, font_size=11):
     return Button(parent, text=text, font=(BODY_FONT, font_size, "bold"), bg=bg, fg=fg,
                   activebackground=bg, activeforeground=fg, relief=FLAT, bd=0,
                   padx=26, pady=12, cursor="hand2", command=command)
+
+def choice_chip(parent, text, selected, on_click):
+    border_color = GOLD_500 if selected else FELT_700
+    wrapper = Frame(parent, bg=border_color, padx=3, pady=3)
+    label = Label(wrapper, text=text, font=(MONO_FONT, 10, "bold"), bg=IVORY_100, fg=FELT_700,
+                  padx=14, pady=8, cursor="hand2")
+    label.pack()
+    label.bind("<Button-1>", lambda e: on_click())
+    return wrapper
+
+def is_ai_turn():
+    return ai_player is not None and game is not None and game.current_player is ai_player
 
 def draw_die(canvas, size, value, pip_color, bg_color):
     canvas.configure(bg=bg_color)
@@ -308,7 +325,7 @@ def show_game_screen():
 
         Label(wrapper, text=status, font=(MONO_FONT, 8, "bold"), bg=tile_bg, fg=FELT_700).pack(fill=X)
 
-        if not die.kept and die.value > 0 and not game.farkle_pending:
+        if not die.kept and die.value > 0 and not game.farkle_pending and not is_ai_turn():
             canvas.configure(cursor="hand2")
             canvas.bind("<Button-1>", lambda e, idx=i: select_die(idx))
 
@@ -342,7 +359,10 @@ def show_game_screen():
     action_pad = Frame(action_row, bg=FELT_950)
     action_pad.pack(pady=18)
 
-    if game.farkle_pending:
+    if is_ai_turn():
+        Label(action_pad, text=t("ai_turn_status"), font=(MONO_FONT, 12, "bold"),
+              bg=FELT_950, fg=VIOLET_300).pack()
+    elif game.farkle_pending:
         flat_button(action_pad, t("btn_continue"), EMBER_500, IVORY_100, continue_after_farkle).pack()
     else:
         flat_button(action_pad, t("btn_roll"), GOLD_500, INK_900, roll_dice_action).pack(side=LEFT, padx=8)
@@ -353,9 +373,12 @@ def show_game_screen():
         if game.current_player.round_score >= settings["bank_minimum"]:
             flat_button(action_pad, t("btn_bank"), IVORY_100, INK_900, bank_points_action).pack(side=LEFT, padx=8)
 
+    # Novy obsah se nejdriv prekryje pres stary (place, ne pack – umi
+    # se prekryvat) a az pak se stary smaze, aby mezi tim okno ani na
+    # okamzik nebylo prazdne.
+    content.place(x=0, y=0, relwidth=1, relheight=1)
     if old_content is not None:
         old_content.destroy()
-    content.pack(fill=BOTH, expand=True)
     game_window.content_frame = content
 
 def select_die(index):
@@ -465,9 +488,9 @@ def show_end_screen(winner):
 
     flat_button(content, t("end_close"), GOLD_500, INK_900, root.destroy, font_size=13).pack(pady=(0, 30))
 
+    content.place(x=0, y=0, relwidth=1, relheight=1)
     if old_content is not None:
         old_content.destroy()
-    content.pack(fill=BOTH, expand=True)
     game_window.content_frame = content
 
 def bank_points_action():
@@ -491,9 +514,12 @@ def next_player():
     for die in game.current_player.dice:
         die.reset_full()
     show_game_screen()
+    ai_maybe_take_turn()
 
 def start_game():
-    global game, root
+    global game, root, ai_player, ai_profile
+    ai_player = None
+    ai_profile = None
     game = FarkleGame()
     game.target_score = settings["target_score"]
     p1 = Player(player_names[0])
@@ -501,6 +527,66 @@ def start_game():
     game.start_game(p1, p2)
     drain_events(game.events, p1.events, p2.events)
     show_game_screen()
+
+def start_game_vs_ai(human_name, difficulty):
+    global game, root, ai_player, ai_profile
+    game = FarkleGame()
+    game.target_score = settings["target_score"]
+    p1 = Player(human_name)
+    p2 = Player(t("ai_name"))
+    ai_player = p2
+    ai_profile = difficulty
+    game.start_game(p1, p2)
+    drain_events(game.events, p1.events, p2.events)
+    show_game_screen()
+    ai_maybe_take_turn()
+
+# ---------- orchestrace tahu AI ----------
+# Kazdy krok tahu AI (hod, vyber, potvrzeni, rozhodnuti bankovat/hazet dal)
+# se naplanuje s malym zpozdenim pres game_window.after(), aby hrac stihl
+# sledovat, co se deje, misto aby se cely tah AI odehral naraz.
+
+def ai_maybe_take_turn():
+    if is_ai_turn():
+        game_window.after(AI_STEP_DELAY_MS, ai_roll_step)
+
+def ai_roll_step():
+    if not is_ai_turn():
+        return
+    roll_dice_action()
+    if game.farkle_pending:
+        game_window.after(AI_STEP_DELAY_MS, ai_continue_after_farkle_step)
+    else:
+        game_window.after(AI_STEP_DELAY_MS, ai_select_step)
+
+def ai_continue_after_farkle_step():
+    if not is_ai_turn():
+        return
+    continue_after_farkle()
+
+def ai_select_step():
+    if not is_ai_turn():
+        return
+    for i in pick_scoring_dice_indices(game.current_player.dice):
+        game.current_player.dice[i].selected = True
+    show_game_screen()
+    game_window.after(AI_STEP_DELAY_MS, ai_confirm_step)
+
+def ai_confirm_step():
+    if not is_ai_turn():
+        return
+    keep_dice()
+    game_window.after(AI_STEP_DELAY_MS, ai_decide_step)
+
+def ai_decide_step():
+    if not is_ai_turn():
+        return
+    player = game.current_player
+    dice_remaining = sum(1 for d in player.dice if not d.kept)
+    if should_bank(player, dice_remaining, settings["bank_minimum"], settings["target_score"], ai_profile):
+        bank_points_action()
+    else:
+        game_window.after(AI_STEP_DELAY_MS, ai_roll_step)
 
 def player2_screen(root_win):
     global player_names
@@ -571,6 +657,67 @@ def player1_screen(root_win):
     entry.bind("<Return>", lambda e: submit())
 
     flat_button(inner, t("btn_continue"), GOLD_500, INK_900, submit, font_size=12).pack(fill=X, pady=(20, 0))
+
+def ai_setup_screen(root_win):
+    root_win.withdraw()
+    win = Toplevel()
+    win.geometry("380x440")
+    win.resizable(False, False)
+    win.configure(bg=FELT_950)
+
+    state = {"difficulty": "cautious", "name_draft": "", "content": None}
+
+    def render():
+        win.title(t("win_title_ai_setup"))
+        old = state["content"]
+        content = Frame(win, bg=FELT_800)
+
+        inner = Frame(content, bg=FELT_800)
+        inner.pack(fill=BOTH, expand=True, padx=34, pady=34)
+
+        Label(inner, text=t("label_name_solo"), font=(MONO_FONT, 10, "bold"),
+              bg=FELT_800, fg=VIOLET_300, anchor="w").pack(fill=X, pady=(0, 8))
+
+        entry = Entry(inner, font=(BODY_FONT, 14), bg=IVORY_100, fg=INK_900, relief=FLAT,
+                      insertbackground=INK_900, highlightthickness=0)
+        entry.insert(0, state["name_draft"])
+        entry.pack(fill=X, ipady=8, pady=(0, 22))
+        entry.focus()
+
+        Label(inner, text=t("ai_difficulty_label"), font=(MONO_FONT, 10, "bold"),
+              bg=FELT_800, fg=VIOLET_300, anchor="w").pack(fill=X, pady=(0, 8))
+
+        diff_row = Frame(inner, bg=FELT_800)
+        diff_row.pack(anchor="w", pady=(0, 26))
+
+        def set_difficulty(value):
+            state["name_draft"] = entry.get()
+            state["difficulty"] = value
+            render()
+
+        choice_chip(diff_row, t("ai_difficulty_cautious"), state["difficulty"] == "cautious",
+                    lambda: set_difficulty("cautious")).pack(side=LEFT, padx=(0, 10))
+        choice_chip(diff_row, t("ai_difficulty_aggressive"), state["difficulty"] == "aggressive",
+                    lambda: set_difficulty("aggressive")).pack(side=LEFT)
+
+        def submit():
+            name = entry.get().strip()
+            if name:
+                win.destroy()
+                start_game_vs_ai(name, state["difficulty"])
+            else:
+                messagebox.showerror(t("err_title"), t("err_no_name"))
+
+        entry.bind("<Return>", lambda e: submit())
+
+        flat_button(inner, t("btn_start_game"), GOLD_500, INK_900, submit, font_size=12).pack(fill=X)
+
+        content.place(x=0, y=0, relwidth=1, relheight=1)
+        if old is not None:
+            old.destroy()
+        state["content"] = content
+
+    render()
 
 def settings_screen(root_win):
     root_win.withdraw()
@@ -649,9 +796,9 @@ def settings_screen(root_win):
         flat_button(btn_row, t("btn_save"), GOLD_500, INK_900, save, font_size=11).pack(side=LEFT, padx=(0, 10))
         flat_button(btn_row, t("btn_back"), VIOLET_500, IVORY_100, back, font_size=11).pack(side=LEFT)
 
+        content.place(x=0, y=0, relwidth=1, relheight=1)
         if old is not None:
             old.destroy()
-        content.pack(fill=BOTH, expand=True)
         state["content"] = content
 
     render()
@@ -676,12 +823,13 @@ def render_main_menu():
     Label(inner, text=t("menu_goal", target=f"{settings['target_score']:,}"), font=(MONO_FONT, 12, "bold"),
           bg=FELT_800, fg=GOLD_300, justify=CENTER).pack(pady=(0, 30))
 
-    flat_button(inner, t("btn_start"), GOLD_500, INK_900, lambda: player1_screen(root), font_size=14).pack(pady=(0, 12))
+    flat_button(inner, t("btn_pvp"), GOLD_500, INK_900, lambda: player1_screen(root), font_size=13).pack(pady=(0, 10))
+    flat_button(inner, t("btn_pva"), IVORY_100, INK_900, lambda: ai_setup_screen(root), font_size=13).pack(pady=(0, 10))
     flat_button(inner, t("btn_settings"), VIOLET_500, IVORY_100, lambda: settings_screen(root), font_size=11).pack()
 
+    body.place(x=0, y=0, relwidth=1, relheight=1)
     if old_content is not None:
         old_content.destroy()
-    body.pack(fill=BOTH, expand=True)
     root.content_frame = body
 
 def main_menu():
@@ -689,7 +837,7 @@ def main_menu():
     player_names = []
 
     root = Tk()
-    root.geometry("460x460")
+    root.geometry("460x520")
     root.resizable(False, False)
     root.configure(bg=FELT_950)
 
