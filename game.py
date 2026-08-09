@@ -7,6 +7,7 @@ class FarkleGame:
         self.current_player = None
         self.target_score = 10000
         self.events = []
+        self.farkle_pending = False
 
     def start_game(self, p1, p2):
         self.head_player = p1

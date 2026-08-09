@@ -220,7 +220,7 @@ def show_game_screen():
 
     score_block(pad, opponent, IVORY_300, VIOLET_500, "e").grid(row=0, column=2, sticky="e")
 
-    Frame(content, bg=GOLD_500, height=2).pack(fill=X)
+    Frame(content, bg=EMBER_500 if game.farkle_pending else GOLD_500, height=2).pack(fill=X)
 
     # ---------- table area: ledger + dice pit ----------
     table_area = Frame(content, bg=FELT_800)
@@ -254,20 +254,29 @@ def show_game_screen():
     dice_pit = Frame(table_area, bg=FELT_700)
     dice_pit.pack(side=RIGHT, fill=BOTH, expand=True, padx=(0, 26), pady=22)
 
+    if game.farkle_pending:
+        Label(dice_pit, text=t("farkle_banner"), font=(DISPLAY_FONT, 15, "bold"),
+              bg=FELT_700, fg=EMBER_500).pack(pady=(18, 0))
+
     dice_grid = Frame(dice_pit, bg=FELT_700)
     dice_grid.pack(expand=True)
 
     for i in range(6):
         die = game.current_player.dice[i]
 
-        if die.kept:
+        if game.farkle_pending:
+            tile_bg, status, pip_color = IVORY_300, t("die_active"), EMBER_500
+        elif die.kept:
             tile_bg, status, pip_color = IVORY_300, t("die_kept"), INK_900
         elif die.selected:
             tile_bg, status, pip_color = IVORY_100, t("die_selected"), GOLD_500
         else:
             tile_bg, status, pip_color = IVORY_100, t("die_active"), INK_900
 
-        border_color = GOLD_500 if die.selected else FELT_700
+        if game.farkle_pending:
+            border_color = EMBER_500
+        else:
+            border_color = GOLD_500 if die.selected else FELT_700
 
         wrapper = Frame(dice_grid, bg=border_color, padx=3, pady=3)
         wrapper.grid(row=i // 3, column=i % 3, padx=10, pady=10)
@@ -278,7 +287,7 @@ def show_game_screen():
 
         Label(wrapper, text=status, font=(MONO_FONT, 8, "bold"), bg=tile_bg, fg=FELT_700).pack(fill=X)
 
-        if not die.kept and die.value > 0:
+        if not die.kept and die.value > 0 and not game.farkle_pending:
             canvas.configure(cursor="hand2")
             canvas.bind("<Button-1>", lambda e, idx=i: select_die(idx))
 
@@ -312,13 +321,16 @@ def show_game_screen():
     action_pad = Frame(action_row, bg=FELT_950)
     action_pad.pack(pady=18)
 
-    flat_button(action_pad, t("btn_roll"), GOLD_500, INK_900, roll_dice_action).pack(side=LEFT, padx=8)
+    if game.farkle_pending:
+        flat_button(action_pad, t("btn_continue"), EMBER_500, IVORY_100, continue_after_farkle).pack()
+    else:
+        flat_button(action_pad, t("btn_roll"), GOLD_500, INK_900, roll_dice_action).pack(side=LEFT, padx=8)
 
-    if sel_score > 0:
-        flat_button(action_pad, t("btn_confirm"), VIOLET_500, IVORY_100, keep_dice).pack(side=LEFT, padx=8)
+        if sel_score > 0:
+            flat_button(action_pad, t("btn_confirm"), VIOLET_500, IVORY_100, keep_dice).pack(side=LEFT, padx=8)
 
-    if game.current_player.round_score >= settings["bank_minimum"]:
-        flat_button(action_pad, t("btn_bank"), IVORY_100, INK_900, bank_points_action).pack(side=LEFT, padx=8)
+        if game.current_player.round_score >= settings["bank_minimum"]:
+            flat_button(action_pad, t("btn_bank"), IVORY_100, INK_900, bank_points_action).pack(side=LEFT, padx=8)
 
     if old_content is not None:
         old_content.destroy()
@@ -351,12 +363,17 @@ def roll_dice_action():
             else:
                 push_event("insurance_failed", player=game.current_player.name)
             game.current_player.abilities_used[ability] = True
-            next_player()
         else:
             push_event("farkle", player=game.current_player.name)
-            next_player()
+        game.farkle_pending = True
+        show_game_screen()
     else:
         show_game_screen()
+
+def continue_after_farkle():
+    global game
+    game.farkle_pending = False
+    next_player()
 
 def keep_dice():
     global game
