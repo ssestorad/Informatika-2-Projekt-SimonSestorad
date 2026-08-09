@@ -4,6 +4,7 @@ from random import randint, choice
 from player import Player
 from game import FarkleGame
 from abilities import ABILITY_NAMES
+from strings import STRINGS
 
 # ---- vizuální styl: plsťový herní stůl ----
 FELT_950 = "#0e2019"
@@ -31,21 +32,63 @@ DIE_PIP_LAYOUT = {
     6: [(1, 1), (1, 3), (2, 1), (2, 3), (3, 1), (3, 3)],
 }
 
+RESOLUTIONS = ["1100x900", "1280x1024", "1000x800", "1366x950"]
+
+settings = {
+    "language": "cs",
+    "target_score": 10000,
+    "bank_minimum": 500,
+    "resolution": "1100x900",
+}
+
+# события se ukladaji jako (klic, {parametry}) a prekladaji az pri vykresleni,
+# aby prepnuti jazyka v nastaveni fungovalo bez zasahu do herni logiky.
+ABILITY_KEY_FIELDS = {
+    "new_ability": ["ability_key"],
+    "primary_abilities": ["a1_key", "a2_key"],
+}
+
 game = None
 root = None
 game_window = None
 player_names = []
-log_lines = []
+log_events = []
 
-def push_log(*messages):
-    global log_lines
-    log_lines.extend(m for m in messages if m)
-    log_lines[:] = log_lines[-30:]
+def t(key, **kwargs):
+    template = STRINGS[settings["language"]][key]
+    return template.format(**kwargs) if kwargs else template
+
+def ability_name(key):
+    return ABILITY_NAMES[settings["language"]].get(key, key)
+
+def format_event(event):
+    key, params = event
+    data = dict(params)
+    for field in ABILITY_KEY_FIELDS.get(key, []):
+        raw = data.pop(field)
+        data[field[:-4]] = ability_name(raw).upper()
+    return STRINGS[settings["language"]][f"ev_{key}"].format(**data)
+
+def format_combo(combo):
+    lang = settings["language"]
+    kind = combo[0]
+    if kind == "triple":
+        _, value, points = combo
+        return STRINGS[lang]["combo_triple"].format(value=value, points=points)
+    _, points = combo
+    return STRINGS[lang][f"combo_{kind}"].format(points=points)
+
+def push_event(key, **params):
+    global log_events
+    log_events.append((key, params))
+    log_events[:] = log_events[-30:]
 
 def drain_events(*sources):
+    global log_events
     for source in sources:
         if source:
-            push_log(*source)
+            log_events.extend(source)
+            log_events[:] = log_events[-30:]
             source.clear()
 
 def flat_button(parent, text, bg, fg, command, font_size=11):
@@ -67,15 +110,65 @@ def draw_die(canvas, size, value, pip_color, bg_color):
         canvas.create_oval(cx - radius, cy - radius, cx + radius, cy + radius,
                             fill=pip_color, outline="")
 
+def draw_flag_cz(canvas):
+    w, h = 46, 30
+    canvas.create_rectangle(0, 0, w, h / 2, fill="#ffffff", outline="")
+    canvas.create_rectangle(0, h / 2, w, h, fill="#d7141a", outline="")
+    canvas.create_polygon(0, 0, 0, h, w * 0.42, h / 2, fill="#11457e", outline="")
+
+def draw_flag_en(canvas):
+    w, h = 46, 30
+    half = w / 2
+
+    # levá polovina – stylizovaný Union Jack (diagonální i rovný kříž)
+    canvas.create_rectangle(0, 0, half, h, fill="#012169", outline="")
+    canvas.create_line(0, 0, half, h, fill="#ffffff", width=4)
+    canvas.create_line(0, h, half, 0, fill="#ffffff", width=4)
+    canvas.create_line(half / 2, 0, half / 2, h, fill="#ffffff", width=7)
+    canvas.create_line(0, h / 2, half, h / 2, fill="#ffffff", width=7)
+    canvas.create_line(half / 2, 0, half / 2, h, fill="#c8102e", width=3)
+    canvas.create_line(0, h / 2, half, h / 2, fill="#c8102e", width=3)
+
+    # pravá polovina – stylizovaná americká vlajka (pruhy + hvězdy v kantonu)
+    stripe_h = h / 5
+    colors = ["#b22234", "#ffffff", "#b22234", "#ffffff", "#b22234"]
+    for i, c in enumerate(colors):
+        canvas.create_rectangle(half, i * stripe_h, w, (i + 1) * stripe_h, fill=c, outline="")
+    canton_w = half * 0.6
+    canton_h = stripe_h * 2
+    canvas.create_rectangle(half, 0, half + canton_w, canton_h, fill="#3c3b6e", outline="")
+    for sx, sy in [(0.25, 0.3), (0.75, 0.3), (0.5, 0.75)]:
+        cx, cy = half + canton_w * sx, canton_h * sy
+        canvas.create_oval(cx - 1.4, cy - 1.4, cx + 1.4, cy + 1.4, fill="#ffffff", outline="")
+
+def language_button(parent, lang_code, draw_fn, label_key, on_change):
+    selected = settings["language"] == lang_code
+    border_color = GOLD_500 if selected else FELT_700
+
+    wrapper = Frame(parent, bg=border_color, padx=3, pady=3)
+    canvas = Canvas(wrapper, width=46, height=30, highlightthickness=0, bg=IVORY_100)
+    canvas.pack()
+    draw_fn(canvas)
+    Label(wrapper, text=STRINGS[settings["language"]][label_key], font=(MONO_FONT, 8, "bold"),
+          bg=IVORY_100, fg=FELT_700).pack(fill=X)
+    canvas.configure(cursor="hand2")
+
+    def select(event=None):
+        settings["language"] = lang_code
+        on_change()
+
+    canvas.bind("<Button-1>", select)
+    return wrapper
+
 def show_game_screen():
     global game_window, game
     if game_window is None:
         game_window = Toplevel()
-        game_window.geometry("1100x900")
+        game_window.geometry(settings["resolution"])
         game_window.resizable(False, False)
         game_window.configure(bg=FELT_950)
 
-    game_window.title(f"{game.current_player.name} - Farkle se SCHOPNOSTMI")
+    game_window.title(f"{game.current_player.name} - {t('game_window_suffix')}")
 
     # Nový obsah se sestaví stranou a vymění se za starý až v okamžiku,
     # kdy je hotový – okno tak nikdy není mezitím prázdné (žádné bliknutí).
@@ -117,12 +210,12 @@ def show_game_screen():
 
     hud_center = Frame(pad, bg=FELT_950)
     hud_center.grid(row=0, column=1, padx=30)
-    ability_text = f"SCHOPNOST: {ABILITY_NAMES.get(ability, ability).upper()}"
+    ability_text = f"{t('ability_prefix')}{ability_name(ability).upper()}"
     if ability in game.current_player.abilities_used:
-        ability_text += " (POUŽITO)"
+        ability_text += t("ability_used_suffix")
     Label(hud_center, text=ability_text, font=(MONO_FONT, 10, "bold"),
           bg=VIOLET_300, fg=FELT_950, padx=12, pady=4).pack()
-    Label(hud_center, text=f"TAH #{game.current_player.turn_count}", font=(MONO_FONT, 9),
+    Label(hud_center, text=t("turn_label", turn=game.current_player.turn_count), font=(MONO_FONT, 9),
           bg=FELT_950, fg=IVORY_300).pack(pady=(6, 0))
 
     score_block(pad, opponent, IVORY_300, VIOLET_500, "e").grid(row=0, column=2, sticky="e")
@@ -141,20 +234,21 @@ def show_game_screen():
     ledger_pad.pack(fill=BOTH, expand=True, padx=20, pady=20)
 
     sel_score, sel_combos = game.current_player.calculate_score(only_selected=True)
+    points_suffix = t("points_suffix")
 
-    Label(ledger_pad, text="VYBRÁNO K ODLOŽENÍ", font=(MONO_FONT, 10, "bold"),
+    Label(ledger_pad, text=t("ledger_selected"), font=(MONO_FONT, 10, "bold"),
           bg=IVORY_100, fg=FELT_700, anchor="w").pack(fill=X)
-    Label(ledger_pad, text=f"{sel_score} bodů", font=(DISPLAY_FONT, 22, "bold"),
+    Label(ledger_pad, text=f"{sel_score} {points_suffix}", font=(DISPLAY_FONT, 22, "bold"),
           bg=IVORY_100, fg=INK_900, anchor="w").pack(fill=X, pady=(0, 6))
     for combo in sel_combos:
-        Label(ledger_pad, text=f"✓ {combo}", font=(MONO_FONT, 11),
+        Label(ledger_pad, text=f"✓ {format_combo(combo)}", font=(MONO_FONT, 11),
               bg=IVORY_100, fg=FELT_700, anchor="w").pack(fill=X)
 
     Frame(ledger_pad, bg=FELT_700, height=1).pack(fill=X, pady=16)
 
-    Label(ledger_pad, text="NASBÍRÁNO V KOLE", font=(MONO_FONT, 10, "bold"),
+    Label(ledger_pad, text=t("ledger_round"), font=(MONO_FONT, 10, "bold"),
           bg=IVORY_100, fg=FELT_700, anchor="w").pack(fill=X)
-    Label(ledger_pad, text=f"{game.current_player.round_score} bodů", font=(DISPLAY_FONT, 22, "bold"),
+    Label(ledger_pad, text=f"{game.current_player.round_score} {points_suffix}", font=(DISPLAY_FONT, 22, "bold"),
           bg=IVORY_100, fg=INK_900, anchor="w").pack(fill=X)
 
     dice_pit = Frame(table_area, bg=FELT_700)
@@ -167,11 +261,11 @@ def show_game_screen():
         die = game.current_player.dice[i]
 
         if die.kept:
-            tile_bg, status, pip_color = IVORY_300, "ULOŽENO", INK_900
+            tile_bg, status, pip_color = IVORY_300, t("die_kept"), INK_900
         elif die.selected:
-            tile_bg, status, pip_color = IVORY_100, "VYBRÁNO", GOLD_500
+            tile_bg, status, pip_color = IVORY_100, t("die_selected"), GOLD_500
         else:
-            tile_bg, status, pip_color = IVORY_100, "AKTIVNÍ", INK_900
+            tile_bg, status, pip_color = IVORY_100, t("die_active"), INK_900
 
         border_color = GOLD_500 if die.selected else FELT_700
 
@@ -196,15 +290,19 @@ def show_game_screen():
     log_pad = Frame(log_strip, bg=INK_900)
     log_pad.pack(fill=BOTH, expand=True, padx=26, pady=10)
 
-    lines = log_lines[-4:] if log_lines else ["Hra začíná..."]
-    for line in lines:
-        if line.upper().startswith("FARKLE"):
-            color = EMBER_500
-        elif line.startswith(("Nová schopnost", "Začíná", "Primární", "Cíl:")):
-            color = IVORY_300
-        else:
-            color = GOLD_300
-        Label(log_pad, text=line, font=(MONO_FONT, 10), bg=INK_900, fg=color,
+    if log_events:
+        for key, params in log_events[-4:]:
+            text = format_event((key, params))
+            if key == "farkle":
+                color = EMBER_500
+            elif key in ("new_ability", "game_start", "primary_abilities", "target"):
+                color = IVORY_300
+            else:
+                color = GOLD_300
+            Label(log_pad, text=text, font=(MONO_FONT, 10), bg=INK_900, fg=color,
+                  anchor="w", justify=LEFT).pack(fill=X)
+    else:
+        Label(log_pad, text=t("log_empty"), font=(MONO_FONT, 10), bg=INK_900, fg=IVORY_300,
               anchor="w", justify=LEFT).pack(fill=X)
 
     # ---------- actions ----------
@@ -214,13 +312,13 @@ def show_game_screen():
     action_pad = Frame(action_row, bg=FELT_950)
     action_pad.pack(pady=18)
 
-    flat_button(action_pad, "HÁZEJ", GOLD_500, INK_900, roll_dice_action).pack(side=LEFT, padx=8)
+    flat_button(action_pad, t("btn_roll"), GOLD_500, INK_900, roll_dice_action).pack(side=LEFT, padx=8)
 
     if sel_score > 0:
-        flat_button(action_pad, "POTVRĎ VÝBĚR", VIOLET_500, IVORY_100, keep_dice).pack(side=LEFT, padx=8)
+        flat_button(action_pad, t("btn_confirm"), VIOLET_500, IVORY_100, keep_dice).pack(side=LEFT, padx=8)
 
-    if game.current_player.round_score >= 500:
-        flat_button(action_pad, "BANK", IVORY_100, INK_900, bank_points_action).pack(side=LEFT, padx=8)
+    if game.current_player.round_score >= settings["bank_minimum"]:
+        flat_button(action_pad, t("btn_bank"), IVORY_100, INK_900, bank_points_action).pack(side=LEFT, padx=8)
 
     if old_content is not None:
         old_content.destroy()
@@ -236,7 +334,7 @@ def select_die(index):
 def roll_dice_action():
     global game
     if any(d.selected for d in game.current_player.dice):
-        push_log("⚠ Nejdřív potvrď výběr kostek!")
+        push_event("confirm_first")
         show_game_screen()
         return
 
@@ -249,13 +347,13 @@ def roll_dice_action():
             saved_points = game.current_player.round_score
             if saved_points > 0:
                 game.current_player.total_score += saved_points
-                push_log(f"Pojistka aktivována! Farkle, ale {game.current_player.name} si nechává {saved_points} bodů.")
+                push_event("insurance_saved", player=game.current_player.name, points=saved_points)
             else:
-                push_log(f"Farkle! Pojistku {game.current_player.name} nezachránila, žádné body v kole.")
+                push_event("insurance_failed", player=game.current_player.name)
             game.current_player.abilities_used[ability] = True
             next_player()
         else:
-            push_log(f"FARKLE! {game.current_player.name} ztrácí vše.")
+            push_event("farkle", player=game.current_player.name)
             next_player()
     else:
         show_game_screen()
@@ -264,12 +362,12 @@ def keep_dice():
     global game
     points, is_hot = game.current_player.confirm_selection()
     if is_hot:
-        push_log("Horké kostky! Házíš znovu všemi šesti!")
+        push_event("hot_dice")
     show_game_screen()
 
 def ability_list(player):
-    names = [ABILITY_NAMES.get(a, a) for a in player.abilities_used]
-    return ", ".join(names) if names else "—"
+    names = [ability_name(a) for a in player.abilities_used]
+    return ", ".join(names) if names else t("no_abilities")
 
 def show_end_screen(winner):
     global game_window, root
@@ -282,7 +380,7 @@ def show_end_screen(winner):
     def color_for(player):
         return GOLD_300 if player is winner else IVORY_300
 
-    Label(content, text=f"VÍTĚZ: {winner.name.upper()}", font=(DISPLAY_FONT, 34, "bold"),
+    Label(content, text=t("end_winner", name=winner.name.upper()), font=(DISPLAY_FONT, 34, "bold"),
           bg=FELT_950, fg=GOLD_300).pack(pady=(36, 4))
     Frame(content, bg=VIOLET_500, height=2, width=80).pack(pady=(0, 26))
 
@@ -302,15 +400,15 @@ def show_end_screen(winner):
         return f" ({player.farkle_count / player.turn_count * 100:.0f} %)" if player.turn_count else ""
 
     rows = [
-        ("Finální skóre", f"{p1.total_score:,}", f"{p2.total_score:,}"),
-        ("Počet tahů", f"{p1.turn_count}", f"{p2.turn_count}"),
-        ("Farklů", f"{p1.farkle_count}{farkle_pct(p1)}", f"{p2.farkle_count}{farkle_pct(p2)}"),
-        ("Úspěšných banků", f"{p1.bank_count}", f"{p2.bank_count}"),
-        ("Nejvyšší bank", f"{p1.best_bank:,}", f"{p2.best_bank:,}"),
-        ("Celkem vsazeno", f"{p1.total_banked:,}", f"{p2.total_banked:,}"),
-        ("Získáno schopnostmi", f"+{p1.points_gained_from_abilities:,}", f"+{p2.points_gained_from_abilities:,}"),
-        ("Ztraceno útoky", f"-{p1.points_lost_to_attacks:,}", f"-{p2.points_lost_to_attacks:,}"),
-        ("Použité schopnosti", ability_list(p1), ability_list(p2)),
+        (t("end_final_score"), f"{p1.total_score:,}", f"{p2.total_score:,}"),
+        (t("end_turns"), f"{p1.turn_count}", f"{p2.turn_count}"),
+        (t("end_farkles"), f"{p1.farkle_count}{farkle_pct(p1)}", f"{p2.farkle_count}{farkle_pct(p2)}"),
+        (t("end_banks"), f"{p1.bank_count}", f"{p2.bank_count}"),
+        (t("end_best_bank"), f"{p1.best_bank:,}", f"{p2.best_bank:,}"),
+        (t("end_total_banked"), f"{p1.total_banked:,}", f"{p2.total_banked:,}"),
+        (t("end_gained"), f"+{p1.points_gained_from_abilities:,}", f"+{p2.points_gained_from_abilities:,}"),
+        (t("end_lost"), f"-{p1.points_lost_to_attacks:,}", f"-{p2.points_lost_to_attacks:,}"),
+        (t("end_abilities"), ability_list(p1), ability_list(p2)),
     ]
 
     for label, v1, v2 in rows:
@@ -327,7 +425,7 @@ def show_end_screen(winner):
 
     Frame(table, bg=FELT_800, height=10).pack()
 
-    flat_button(content, "ZAVŘÍT HRU", GOLD_500, INK_900, root.destroy, font_size=13).pack(pady=(0, 30))
+    flat_button(content, t("end_close"), GOLD_500, INK_900, root.destroy, font_size=13).pack(pady=(0, 30))
 
     if old_content is not None:
         old_content.destroy()
@@ -339,7 +437,7 @@ def bank_points_action():
     opponent = game.get_opponent()
     banked = game.current_player.bank_points(opponent)
 
-    push_log(f"{game.current_player.name} uložil {banked} bodů do banku.")
+    push_event("banked", player=game.current_player.name, amount=banked)
     drain_events(game.current_player.events)
 
     winner = game.check_winner()
@@ -359,6 +457,7 @@ def next_player():
 def start_game():
     global game, root
     game = FarkleGame()
+    game.target_score = settings["target_score"]
     p1 = Player(player_names[0])
     p2 = Player(player_names[1])
     game.start_game(p1, p2)
@@ -369,7 +468,7 @@ def player2_screen(root_win):
     global player_names
     root_win.withdraw()
     win = Toplevel()
-    win.title("Hráč 2")
+    win.title(t("win_title_p2"))
     win.geometry("360x300")
     win.configure(bg=FELT_950)
 
@@ -379,7 +478,7 @@ def player2_screen(root_win):
     inner = Frame(pad, bg=FELT_800)
     inner.pack(expand=True, fill=X, padx=34, pady=34)
 
-    Label(inner, text="JMÉNO HRÁČE 2", font=(MONO_FONT, 10, "bold"),
+    Label(inner, text=t("label_name2"), font=(MONO_FONT, 10, "bold"),
           bg=FELT_800, fg=VIOLET_300, anchor="w").pack(fill=X, pady=(0, 8))
 
     entry = Entry(inner, font=(BODY_FONT, 14), bg=IVORY_100, fg=INK_900, relief=FLAT,
@@ -394,17 +493,17 @@ def player2_screen(root_win):
             win.destroy()
             start_game()
         else:
-            messagebox.showerror("Chyba", "Zadejte jiný název!")
+            messagebox.showerror(t("err_title"), t("err_dup_name"))
 
     entry.bind("<Return>", lambda e: submit())
 
-    flat_button(inner, "START HRY", GOLD_500, INK_900, submit, font_size=12).pack(fill=X, pady=(20, 0))
+    flat_button(inner, t("btn_start_game"), GOLD_500, INK_900, submit, font_size=12).pack(fill=X, pady=(20, 0))
 
 def player1_screen(root_win):
     global player_names
     root_win.withdraw()
     win = Toplevel()
-    win.title("Hráč 1")
+    win.title(t("win_title_p1"))
     win.geometry("360x300")
     win.configure(bg=FELT_950)
 
@@ -414,7 +513,7 @@ def player1_screen(root_win):
     inner = Frame(pad, bg=FELT_800)
     inner.pack(expand=True, fill=X, padx=34, pady=34)
 
-    Label(inner, text="JMÉNO HRÁČE 1", font=(MONO_FONT, 10, "bold"),
+    Label(inner, text=t("label_name1"), font=(MONO_FONT, 10, "bold"),
           bg=FELT_800, fg=VIOLET_300, anchor="w").pack(fill=X, pady=(0, 8))
 
     entry = Entry(inner, font=(BODY_FONT, 14), bg=IVORY_100, fg=INK_900, relief=FLAT,
@@ -429,34 +528,133 @@ def player1_screen(root_win):
             win.destroy()
             player2_screen(root)
         else:
-            messagebox.showerror("Chyba", "Zadejte jméno!")
+            messagebox.showerror(t("err_title"), t("err_no_name"))
 
     entry.bind("<Return>", lambda e: submit())
 
-    flat_button(inner, "POKRAČOVAT", GOLD_500, INK_900, submit, font_size=12).pack(fill=X, pady=(20, 0))
+    flat_button(inner, t("btn_continue"), GOLD_500, INK_900, submit, font_size=12).pack(fill=X, pady=(20, 0))
+
+def settings_screen(root_win):
+    root_win.withdraw()
+    win = Toplevel()
+    win.geometry("380x600")
+    win.resizable(False, False)
+    win.configure(bg=FELT_950)
+
+    state = {"content": None}
+
+    def render():
+        win.title(t("settings_title"))
+        old = state["content"]
+        content = Frame(win, bg=FELT_800)
+
+        inner = Frame(content, bg=FELT_800)
+        inner.pack(fill=BOTH, expand=True, padx=34, pady=28)
+
+        Label(inner, text=t("settings_title"), font=(DISPLAY_FONT, 20, "bold"),
+              bg=FELT_800, fg=GOLD_300).pack(anchor="w", pady=(0, 20))
+
+        Label(inner, text=t("settings_target"), font=(MONO_FONT, 10, "bold"),
+              bg=FELT_800, fg=VIOLET_300, anchor="w").pack(fill=X)
+        target_entry = Entry(inner, font=(BODY_FONT, 13), bg=IVORY_100, fg=INK_900,
+                              relief=FLAT, insertbackground=INK_900, highlightthickness=0)
+        target_entry.insert(0, str(settings["target_score"]))
+        target_entry.pack(fill=X, ipady=6, pady=(4, 16))
+
+        Label(inner, text=t("settings_bank_min"), font=(MONO_FONT, 10, "bold"),
+              bg=FELT_800, fg=VIOLET_300, anchor="w").pack(fill=X)
+        bank_entry = Entry(inner, font=(BODY_FONT, 13), bg=IVORY_100, fg=INK_900,
+                            relief=FLAT, insertbackground=INK_900, highlightthickness=0)
+        bank_entry.insert(0, str(settings["bank_minimum"]))
+        bank_entry.pack(fill=X, ipady=6, pady=(4, 16))
+
+        Label(inner, text=t("settings_resolution"), font=(MONO_FONT, 10, "bold"),
+              bg=FELT_800, fg=VIOLET_300, anchor="w").pack(fill=X)
+        res_var = StringVar(value=settings["resolution"])
+        res_menu = OptionMenu(inner, res_var, *RESOLUTIONS)
+        res_menu.configure(font=(BODY_FONT, 11), bg=IVORY_100, fg=INK_900, activebackground=IVORY_300,
+                            relief=FLAT, bd=0, highlightthickness=0, anchor="w")
+        res_menu["menu"].configure(font=(BODY_FONT, 11), bg=IVORY_100, fg=INK_900)
+        res_menu.pack(fill=X, pady=(4, 16), ipady=5)
+
+        Label(inner, text=t("settings_language"), font=(MONO_FONT, 10, "bold"),
+              bg=FELT_800, fg=VIOLET_300, anchor="w").pack(fill=X, pady=(0, 8))
+        lang_row = Frame(inner, bg=FELT_800)
+        lang_row.pack(anchor="w", pady=(0, 24))
+        language_button(lang_row, "cs", draw_flag_cz, "lang_cs", render).pack(side=LEFT, padx=(0, 12))
+        language_button(lang_row, "en", draw_flag_en, "lang_en", render).pack(side=LEFT)
+
+        btn_row = Frame(inner, bg=FELT_800)
+        btn_row.pack(fill=X)
+
+        def save():
+            try:
+                target = int(target_entry.get().strip())
+                bank_min = int(bank_entry.get().strip())
+                if target <= 0 or bank_min <= 0 or bank_min > target:
+                    raise ValueError
+            except ValueError:
+                messagebox.showerror(t("err_title"), t("err_invalid_number"))
+                return
+            settings["target_score"] = target
+            settings["bank_minimum"] = bank_min
+            settings["resolution"] = res_var.get()
+            win.destroy()
+            root_win.deiconify()
+            render_main_menu()
+
+        def back():
+            win.destroy()
+            root_win.deiconify()
+
+        flat_button(btn_row, t("btn_save"), GOLD_500, INK_900, save, font_size=11).pack(side=LEFT, padx=(0, 10))
+        flat_button(btn_row, t("btn_back"), VIOLET_500, IVORY_100, back, font_size=11).pack(side=LEFT)
+
+        if old is not None:
+            old.destroy()
+        content.pack(fill=BOTH, expand=True)
+        state["content"] = content
+
+    render()
+
+def render_main_menu():
+    global root
+    root.title(t("app_title"))
+
+    old_content = getattr(root, "content_frame", None)
+    body = Frame(root, bg=FELT_800)
+
+    inner = Frame(body, bg=FELT_800)
+    inner.pack(expand=True)
+
+    Label(inner, text=t("brand"), font=(DISPLAY_FONT, 46, "bold"), bg=FELT_800, fg=GOLD_300).pack(pady=(36, 8))
+    Frame(inner, bg=VIOLET_500, height=2, width=60).pack(pady=(0, 16))
+
+    Label(inner, text=t("menu_tagline"), font=(BODY_FONT, 12), bg=FELT_800, fg=IVORY_100,
+          justify=CENTER, wraplength=340).pack(pady=(0, 10))
+    Label(inner, text=t("menu_rules_short"), font=(MONO_FONT, 9), bg=FELT_800, fg=IVORY_300,
+          justify=CENTER, wraplength=360).pack(pady=(0, 14))
+    Label(inner, text=t("menu_goal", target=f"{settings['target_score']:,}"), font=(MONO_FONT, 12, "bold"),
+          bg=FELT_800, fg=GOLD_300, justify=CENTER).pack(pady=(0, 30))
+
+    flat_button(inner, t("btn_start"), GOLD_500, INK_900, lambda: player1_screen(root), font_size=14).pack(pady=(0, 12))
+    flat_button(inner, t("btn_settings"), VIOLET_500, IVORY_100, lambda: settings_screen(root), font_size=11).pack()
+
+    if old_content is not None:
+        old_content.destroy()
+    body.pack(fill=BOTH, expand=True)
+    root.content_frame = body
 
 def main_menu():
     global player_names, root
     player_names = []
 
     root = Tk()
-    root.title("FARKLE se SCHOPNOSTMI KAŽDÝCH 5 TAHŮ")
-    root.geometry("460x420")
+    root.geometry("460x460")
     root.resizable(False, False)
     root.configure(bg=FELT_950)
 
-    body = Frame(root, bg=FELT_800)
-    body.pack(fill=BOTH, expand=True)
-
-    inner = Frame(body, bg=FELT_800)
-    inner.pack(expand=True)
-
-    Label(inner, text="FARKLE", font=(DISPLAY_FONT, 46, "bold"), bg=FELT_800, fg=GOLD_300).pack(pady=(40, 8))
-    Frame(inner, bg=VIOLET_500, height=2, width=60).pack(pady=(0, 18))
-    Label(inner, text="1 = 100 · 5 = 50 · 3 stejné = 300+\nnová schopnost každých 5 tahů\ncíl: 10 000 bodů",
-          font=(MONO_FONT, 11), bg=FELT_800, fg=IVORY_300, justify=CENTER).pack(pady=(0, 30))
-
-    flat_button(inner, "ZAČÍT HRU", GOLD_500, INK_900, lambda: player1_screen(root), font_size=14).pack(pady=(0, 40))
+    render_main_menu()
 
     root.mainloop()
 

@@ -1,7 +1,6 @@
 from dice import Dice
 from collections import Counter
 from random import choice
-from abilities import ABILITY_NAMES
 
 class Player:
     def __init__(self, name):
@@ -32,8 +31,11 @@ class Player:
             if self.secondary_ability in self.abilities_used:
                 del self.abilities_used[self.secondary_ability]
 
-            ability_name = ABILITY_NAMES.get(self.secondary_ability, self.secondary_ability)
-            self.events.append(f"Nová schopnost pro {self.name}: {ability_name.upper()} (tah #{self.turn_count})")
+            self.events.append(("new_ability", {
+                "player": self.name,
+                "ability_key": self.secondary_ability,
+                "turn": self.turn_count,
+            }))
 
     def roll_dice(self):
         for d in self.dice:
@@ -60,19 +62,19 @@ class Player:
         combos = []
 
         for val, count in counts.items():
-            if count == 6: return 5000, ["6 stejných: 5000"]
+            if count == 6: return 5000, [("six_kind", 5000)]
 
-        if num_dice == 6 and len(counts) == 6: return 2000, ["Postupka: 2000"]
+        if num_dice == 6 and len(counts) == 6: return 2000, [("straight", 2000)]
 
         pairs = [val for val, count in counts.items() if count == 2]
-        if len(pairs) == 3 and num_dice == 6: return 1000, ["3x dvojice: 1000"]
+        if len(pairs) == 3 and num_dice == 6: return 1000, [("three_pairs", 1000)]
 
         temp_counts = dict(counts)
         for i in range(1, 7):
             if temp_counts.get(i, 0) >= 3:
                 points = 1000 if i == 1 else i * 100
                 score += points
-                combos.append(f"3x {i}: {points}")
+                combos.append(("triple", i, points))
                 temp_counts[i] -= 3
 
         score += temp_counts.get(1, 0) * 100
@@ -130,21 +132,21 @@ class Player:
             penalty = opponent.last_bank
             opponent.total_score = max(0, opponent.total_score - penalty)
             opponent.points_lost_to_attacks += penalty
-            self.events.append(f"Zmizík! {self.name} vymazal {opponent.name} posledních {penalty} bodů!")
+            self.events.append(("eraser", {"player": self.name, "opponent": opponent.name, "penalty": penalty}))
             self.abilities_used[ability] = True
         elif ability in ["sabotage", "steal"] and ability not in self.abilities_used:
             if opponent.get_active_ability() == "mirror_shield" and "mirror_shield" not in opponent.abilities_used:
                 penalty = int(self.total_score * 0.3)
                 self.total_score -= penalty
                 self.points_lost_to_attacks += penalty
-                self.events.append(f"Zrcadlový štít! {opponent.name} má štít, útok se odrazil a stál {self.name} {penalty} bodů!")
+                self.events.append(("shield", {"player": self.name, "opponent": opponent.name, "penalty": penalty}))
                 opponent.abilities_used["mirror_shield"] = True
             else:
                 if ability == "sabotage":
                     penalty = int(opponent.total_score * 0.5)
                     opponent.total_score -= penalty
                     opponent.points_lost_to_attacks += penalty
-                    self.events.append(f"Sabotáž! {self.name} ubral soupeři {opponent.name} polovinu bodů (-{penalty} b)!")
+                    self.events.append(("sabotage", {"player": self.name, "opponent": opponent.name, "penalty": penalty}))
 
                 elif ability == "steal":
                     amount = int(opponent.total_score * 0.3)
@@ -152,7 +154,7 @@ class Player:
                     self.total_score += amount
                     opponent.points_lost_to_attacks += amount
                     self.points_gained_from_abilities += amount
-                    self.events.append(f"Krádež! {self.name} ukradl {opponent.name} 30 % bodů (+{amount} b)!")
+                    self.events.append(("steal", {"player": self.name, "opponent": opponent.name, "amount": amount}))
 
             self.abilities_used[ability] = True
 
