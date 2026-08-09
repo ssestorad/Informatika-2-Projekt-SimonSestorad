@@ -8,6 +8,7 @@ ABILITY_NAMES = {
         "eraser": "Zmizík",
         "mirror_shield": "Zrcadlový štít",
         "insurance": "Pojistka",
+        "extra_turn": "Extra tah",
     },
     "en": {
         "double": "Doubler",
@@ -18,6 +19,7 @@ ABILITY_NAMES = {
         "eraser": "Eraser",
         "mirror_shield": "Mirror Shield",
         "insurance": "Insurance",
+        "extra_turn": "Extra Turn",
     },
     "he": {
         "double": "מכפיל",
@@ -28,5 +30,6 @@ ABILITY_NAMES = {
         "eraser": "מוחק",
         "mirror_shield": "מגן מראה",
         "insurance": "ביטוח",
+        "extra_turn": "תור נוסף",
     },
 }

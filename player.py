@@ -27,7 +27,7 @@ class Player:
             d.reset_full()
 
         if self.turn_count % 5 == 0:
-            self.secondary_ability = choice(["double", "sabotage", "steal", "fast_points", "boost"])
+            self.secondary_ability = choice(["double", "sabotage", "steal", "fast_points", "boost", "extra_turn"])
             if self.secondary_ability in self.abilities_used:
                 del self.abilities_used[self.secondary_ability]
 
@@ -104,10 +104,11 @@ class Player:
         return points, is_hot
 
     def bank_points(self, opponent):
-        if self.round_score == 0: return 0
-        
+        if self.round_score == 0: return 0, False
+
         final_gain = self.round_score
         ability = self.get_active_ability()
+        extra_turn = False
 
         if ability == "fast_points" and ability not in self.abilities_used:
             final_gain += 500
@@ -127,6 +128,10 @@ class Player:
             boost = int(self.total_score * 0.1)
             self.total_score += boost
             self.points_gained_from_abilities += boost
+            self.abilities_used[ability] = True
+        elif ability == "extra_turn" and ability not in self.abilities_used:
+            extra_turn = True
+            self.events.append(("extra_turn", {"player": self.name}))
             self.abilities_used[ability] = True
         elif ability == "eraser" and ability not in self.abilities_used:
             penalty = opponent.last_bank
@@ -160,7 +165,7 @@ class Player:
 
         self.last_bank = final_gain
         self.round_score = 0
-        return final_gain
+        return final_gain, extra_turn
 
     def get_active_ability(self):
         return self.secondary_ability or self.primary_ability

@@ -10,6 +10,7 @@ STRINGS = {
         "btn_pvp": "HRÁČ VS HRÁČ",
         "btn_pva": "HRÁČ VS AI",
         "btn_settings": "NASTAVENÍ",
+        "btn_quit": "UKONČIT HRU",
 
         # zadání jmen
         "win_title_p1": "Hráč 1",
@@ -90,6 +91,7 @@ STRINGS = {
         "ev_farkle": "FARKLE! {player} ztrácí vše.",
         "ev_hot_dice": "Horké kostky! Házíš znovu všemi šesti!",
         "ev_banked": "{player} uložil {amount} bodů do banku.",
+        "ev_extra_turn": "Extra tah! {player} hraje ještě jednou, tah se nepředává.",
 
         # kombinace v bodovacím ledgeru
         "combo_six_kind": "6 stejných: {points}",
@@ -107,6 +109,7 @@ STRINGS = {
         "btn_pvp": "PLAYER VS PLAYER",
         "btn_pva": "PLAYER VS AI",
         "btn_settings": "SETTINGS",
+        "btn_quit": "QUIT GAME",
 
         "win_title_p1": "Player 1",
         "win_title_p2": "Player 2",
@@ -181,6 +184,7 @@ STRINGS = {
         "ev_farkle": "FARKLE! {player} loses everything.",
         "ev_hot_dice": "Hot dice! Roll all six again!",
         "ev_banked": "{player} banked {amount} points.",
+        "ev_extra_turn": "Extra turn! {player} plays again — the turn doesn't pass.",
 
         "combo_six_kind": "Six of a kind: {points}",
         "combo_straight": "Straight: {points}",
@@ -197,6 +201,7 @@ STRINGS = {
         "btn_pvp": "שחקן נגד שחקן",
         "btn_pva": "שחקן נגד AI",
         "btn_settings": "הגדרות",
+        "btn_quit": "צא מהמשחק",
 
         "win_title_p1": "שחקן 1",
         "win_title_p2": "שחקן 2",
@@ -271,6 +276,7 @@ STRINGS = {
         "ev_farkle": "פארקל! {player} מאבד הכל.",
         "ev_hot_dice": "קוביות חמות! הטל שוב את כל השש!",
         "ev_banked": "{player} הפקיד {amount} נקודות.",
+        "ev_extra_turn": "תור נוסף! {player} משחק שוב, התור לא עובר.",
 
         "combo_six_kind": "שישייה זהה: {points}",
         "combo_straight": "רצף: {points}",

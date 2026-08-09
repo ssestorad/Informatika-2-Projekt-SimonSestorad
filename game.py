@@ -16,7 +16,7 @@ class FarkleGame:
 
         abilities = [
             "double", "sabotage", "steal", "fast_points",
-            "boost", "eraser", "mirror_shield", "insurance"
+            "boost", "eraser", "mirror_shield", "insurance", "extra_turn"
         ]
 
         p1.primary_ability = choice(abilities)
@@ -39,7 +39,12 @@ class FarkleGame:
             self.current_player = self.head_player
             
         self.current_player.reset_round()
-        
+
+        self.current_player.new_turn()
+
+    def grant_extra_turn(self):
+        """Stejny reset jako switch_player, ale hrac zustava stejny (schopnost Extra tah)."""
+        self.current_player.reset_round()
         self.current_player.new_turn()
 
     def get_opponent(self):

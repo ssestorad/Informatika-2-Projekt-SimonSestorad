@@ -84,10 +84,10 @@ Pokud hod **neobsahuje žádnou bodovanou kostku** (mezi kostkami, které ješt�
 
 ### Pravidla schopností
 
-* Na začátku hry dostane každý hráč náhodnou **primární schopnost** (obě jsou vždy různé) — losuje se ze všech 8 schopností níže.
-* **Každých 5 tahů** hráč dostane novou **sekundární schopnost**, vylosovanou z pěti "útočných/bankovních" schopností (Dvojnásobník, Sabotáž, Krádež, Fast Points, 10% Boost). **Pojistka, Zrcadlový štít a Zmizík** tedy může hráč získat **jen jako primární** schopnost na úplném začátku hry.
+* Na začátku hry dostane každý hráč náhodnou **primární schopnost** (obě jsou vždy různé) — losuje se ze všech 9 schopností níže.
+* **Každých 5 tahů** hráč dostane novou **sekundární schopnost**, vylosovanou z šesti "útočných/bankovních" schopností (Dvojnásobník, Sabotáž, Krádež, Fast Points, 10% Boost, Extra tah). **Pojistka, Zrcadlový štít a Zmizík** tedy může hráč získat **jen jako primární** schopnost na úplném začátku hry.
 * Hráči je vždy aktivní **jen jedna schopnost — ta nejnovější**. Jakmile hráč poprvé dostane sekundární schopnost (v 5. tahu), natrvalo přebere místo primární — pokud primární do té doby nebyla použita, propadá.
-* Schopnosti se aktivují **automaticky**, jakmile nastane jejich podmínka — u Dvojnásobníku, Fast Points, 10% Boostu, Sabotáže, Krádeže a Zmizíku hned při nejbližším zapsání banku; u Pojistky až při Farkle a u Zrcadlového štítu až při soupeřově útoku.
+* Schopnosti se aktivují **automaticky**, jakmile nastane jejich podmínka — u Dvojnásobníku, Fast Points, 10% Boostu, Sabotáže, Krádeže, Zmizíku a Extra tahu hned při nejbližším zapsání banku; u Pojistky až při Farkle a u Zrcadlového štítu až při soupeřově útoku.
 * Schopnosti **nelze odkládat ani šetřit na později** a každá se použije **nejvýš jednou** — pokud ale hráč později vylosuje schopnost, kterou už dřív spotřeboval, dostává ji znovu čerstvou.
 
 ### Přehled schopností
@@ -95,6 +95,7 @@ Pokud hod **neobsahuje žádnou bodovanou kostku** (mezi kostkami, které ješt�
 * **DVOJNÁSOBNÍK** – Bank zapsaný při nejbližším BANKu se **zdvojnásobí (×2)**.
 * **FAST POINTS** – K nejbližšímu zapsanému banku se přidá rovnou **+500 bodů**.
 * **10 % BOOST** – Po zapsání nejbližšího banku získáš navíc **+10 % svého celkového skóre** (počítáno už s právě přičteným bankem).
+* **EXTRA TAH** – Po zapsání nejbližšího banku **hraješ hned další tah navíc** — tah se soupeři nepředává.
 * **SABOTÁŽ** – Při zapsání banku zničíš soupeři **50 % jeho aktuálního celkového skóre** (body nikam nepřecházejí, prostě zmizí).
 * **KRÁDEŽ** – Při zapsání banku ukradneš soupeři **30 % jeho aktuálního celkového skóre** a přičteš si je k vlastnímu.
 * **ZMIZÍK** – Při zapsání banku vymažeš soupeři přesně tolik bodů, kolik měl jeho **poslední zapsaný bank** (pokud ještě nebankoval, nic se nestane).

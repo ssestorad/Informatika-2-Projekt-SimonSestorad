@@ -496,7 +496,7 @@ def show_end_screen(winner):
 def bank_points_action():
     global game, root
     opponent = game.get_opponent()
-    banked = game.current_player.bank_points(opponent)
+    banked, extra_turn = game.current_player.bank_points(opponent)
 
     push_event("banked", player=game.current_player.name, amount=banked)
     drain_events(game.current_player.events)
@@ -504,17 +504,24 @@ def bank_points_action():
     winner = game.check_winner()
     if winner:
         show_end_screen(winner)
+    elif extra_turn:
+        game.grant_extra_turn()
+        begin_turn_render()
     else:
         next_player()
 
-def next_player():
-    global game
-    game.switch_player()
+def begin_turn_render():
+    """Vykresli obrazovku pro aktualniho hrace na zacatku jeho tahu (po prepnuti i po extra tahu)."""
     drain_events(game.current_player.events)
     for die in game.current_player.dice:
         die.reset_full()
     show_game_screen()
     ai_maybe_take_turn()
+
+def next_player():
+    global game
+    game.switch_player()
+    begin_turn_render()
 
 def start_game():
     global game, root, ai_player, ai_profile
@@ -823,9 +830,10 @@ def render_main_menu():
     Label(inner, text=t("menu_goal", target=f"{settings['target_score']:,}"), font=(MONO_FONT, 12, "bold"),
           bg=FELT_800, fg=GOLD_300, justify=CENTER).pack(pady=(0, 30))
 
-    flat_button(inner, t("btn_pvp"), GOLD_500, INK_900, lambda: player1_screen(root), font_size=13).pack(pady=(0, 10))
-    flat_button(inner, t("btn_pva"), IVORY_100, INK_900, lambda: ai_setup_screen(root), font_size=13).pack(pady=(0, 10))
-    flat_button(inner, t("btn_settings"), VIOLET_500, IVORY_100, lambda: settings_screen(root), font_size=11).pack()
+    flat_button(inner, t("btn_pvp"), GOLD_500, INK_900, lambda: player1_screen(root), font_size=13).pack(fill=X, pady=(0, 10))
+    flat_button(inner, t("btn_pva"), IVORY_100, INK_900, lambda: ai_setup_screen(root), font_size=13).pack(fill=X, pady=(0, 10))
+    flat_button(inner, t("btn_settings"), VIOLET_500, IVORY_100, lambda: settings_screen(root), font_size=13).pack(fill=X, pady=(0, 10))
+    flat_button(inner, t("btn_quit"), FELT_700, IVORY_300, root.destroy, font_size=13).pack(fill=X)
 
     body.place(x=0, y=0, relwidth=1, relheight=1)
     if old_content is not None:
@@ -837,7 +845,7 @@ def main_menu():
     player_names = []
 
     root = Tk()
-    root.geometry("460x520")
+    root.geometry("460x580")
     root.resizable(False, False)
     root.configure(bg=FELT_950)
 
