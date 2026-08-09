@@ -1,6 +1,5 @@
 from tkinter import *
 from tkinter import messagebox
-from random import *
 from random import randint, choice
 from player import Player
 from dice import Dice
@@ -91,7 +90,7 @@ def show_game_screen():
         Button(action_frame, text="POTVRĎ VÝBĚR", font=("Arial", 12, "bold"), bg="green", fg="white",
                width=15, height=2, command=keep_dice).pack(side=LEFT, padx=10)
 
-    if game.current_player.round_score >= 750 or (game.current_player.round_score > 0 and any(d.kept for d in game.current_player.dice)):
+    if game.current_player.round_score >= 500:
         Button(action_frame, text="BANK", font=("Arial", 12, "bold"), bg="orange", fg="white",
                width=15, height=2, command=bank_points_action).pack(side=LEFT, padx=10)
 
@@ -110,14 +109,16 @@ def roll_dice_action():
     success = game.current_player.roll_dice()
     
     if not success:
-        if game.current_player.get_active_ability() == "insurance":
+        ability = game.current_player.get_active_ability()
+        if ability == "insurance" and ability not in game.current_player.abilities_used:
             saved_points = game.current_player.round_score
             if saved_points > 0:
                 game.current_player.total_score += saved_points
-                messagebox.showinfo("POJISTKA AKTIVOVÁNA", 
+                messagebox.showinfo("POJISTKA AKTIVOVÁNA",
                     f"Farkle! Ale díky pojistce ti zůstává {saved_points} bodů.")
             else:
                 messagebox.showinfo("FARKLE", "Pojistka tě nezachránila, v tomto kole jsi neměl žádné body.")
+            game.current_player.abilities_used[ability] = True
             next_player()
         else:
             messagebox.showerror("FARKLE!", f"Smůla! {game.current_player.name} ztrácí vše.")

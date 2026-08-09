@@ -1,5 +1,3 @@
-from tkinter import *
-from random import *
 from tkinter import messagebox
 from random import choice
 

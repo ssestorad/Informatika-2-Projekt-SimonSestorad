@@ -1,5 +1,3 @@
-from tkinter import *
-from random import *
 from dice import Dice
 from collections import Counter
 from tkinter import messagebox
@@ -59,8 +57,8 @@ class Player:
 
         if num_dice == 6 and len(counts) == 6: return 2000, ["Postupka: 2000"]
 
-        pairs = sum(count // 2 for count in counts.values())
-        if pairs == 3 and num_dice == 6: return 1000, ["3x dvojice: 1000"]
+        pairs = [val for val, count in counts.items() if count == 2]
+        if len(pairs) == 3 and num_dice == 6: return 1000, ["3x dvojice: 1000"]
 
         temp_counts = dict(counts)
         for i in range(1, 7):
@@ -121,11 +119,12 @@ class Player:
             messagebox.showinfo("Zmizík!", f"Hráč {self.name} vymazal {opponent.name} posledních {penalty} bodů!")
             self.abilities_used[ability] = True
         elif ability in ["sabotage", "steal"] and ability not in self.abilities_used:
-            if opponent.get_active_ability() == "mirror_shield":
+            if opponent.get_active_ability() == "mirror_shield" and "mirror_shield" not in opponent.abilities_used:
                 messagebox.showinfo("ZRCADLOVÝ ŠTÍT!", f"{opponent.name} má štít! Útok se odrazil!")
                 penalty = int(self.total_score * 0.3)
                 self.total_score -= penalty
                 messagebox.showwarning("TREST", f"Pokus o útok tě stál {penalty} bodů!")
+                opponent.abilities_used["mirror_shield"] = True
             else:
                 if ability == "sabotage":
                     penalty = int(opponent.total_score * 0.5)
@@ -151,6 +150,3 @@ class Player:
         for d in self.dice:
             d.reset_full()
         self.round_score = 0
-
-    def get_active_count(self):
-        return sum(1 for d in self.dice if not d.kept)

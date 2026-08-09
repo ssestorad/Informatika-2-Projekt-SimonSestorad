@@ -16,7 +16,7 @@ Cílem hry je být **první hráč**, který dosáhne předem stanoveného počt
 2. Po každém hodu musí **odložit alespoň jednu bodovanou kostku** (viz bodovací tabulka níže).
 3. Se zbývajícími kostkami může:
    * znovu házet a pokusit se získat další body, nebo
-   * kdykoli **ukončit kolo** a zapsat si dosud získané body.
+   * kdykoli **ukončit kolo** a zapsat si dosud získané body — pokud má hráč v kole nasbíráno alespoň **500 bodů**.
 4. Pokud hráč **neodloží žádnou bodovanou kostku**, přichází o **všechny body získané v tomto kole** (tzv. *Farkle*).
 5. Pokud hráč **odloží všech 6 kostek**, získává tzv. *horké kostky* a **hází znovu všemi šesti**.
 6. Hra pokračuje po směru hodinových ručiček.
