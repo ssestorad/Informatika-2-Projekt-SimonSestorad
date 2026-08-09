@@ -21,12 +21,25 @@ class Player:
         self.points_gained_from_abilities = 0
         self.points_lost_to_attacks = 0
 
-    def new_turn(self):
+    def new_turn(self, opponent=None):
         self.turn_count += 1
         for d in self.dice:
             d.reset_full()
 
         if self.turn_count % 5 == 0:
+            expiring_ability = self.get_active_ability()
+            if expiring_ability == "mirror_shield" and expiring_ability not in self.abilities_used:
+                self.total_score += 500
+                self.points_gained_from_abilities += 500
+                self.abilities_used[expiring_ability] = True
+                self.events.append(("shield_expired", {"player": self.name}))
+            elif expiring_ability == "eraser" and expiring_ability not in self.abilities_used and opponent is not None:
+                penalty = min(500, opponent.total_score)
+                opponent.total_score -= penalty
+                opponent.points_lost_to_attacks += penalty
+                self.abilities_used[expiring_ability] = True
+                self.events.append(("eraser_expired", {"player": self.name, "opponent": opponent.name}))
+
             self.secondary_ability = choice(["double", "sabotage", "steal", "fast_points", "boost", "extra_turn"])
             if self.secondary_ability in self.abilities_used:
                 del self.abilities_used[self.secondary_ability]
@@ -148,13 +161,13 @@ class Player:
                 opponent.abilities_used["mirror_shield"] = True
             else:
                 if ability == "sabotage":
-                    penalty = int(opponent.total_score * 0.5)
+                    penalty = int(opponent.total_score * 0.25)
                     opponent.total_score -= penalty
                     opponent.points_lost_to_attacks += penalty
                     self.events.append(("sabotage", {"player": self.name, "opponent": opponent.name, "penalty": penalty}))
 
                 elif ability == "steal":
-                    amount = int(opponent.total_score * 0.3)
+                    amount = int(opponent.total_score * 0.15)
                     opponent.total_score -= amount
                     self.total_score += amount
                     opponent.points_lost_to_attacks += amount

@@ -96,11 +96,11 @@ Pokud hod **neobsahuje žádnou bodovanou kostku** (mezi kostkami, které ješt�
 * **FAST POINTS** – K nejbližšímu zapsanému banku se přidá rovnou **+500 bodů**.
 * **10 % BOOST** – Po zapsání nejbližšího banku získáš navíc **+10 % svého celkového skóre** (počítáno už s právě přičteným bankem).
 * **EXTRA TAH** – Po zapsání nejbližšího banku **hraješ hned další tah navíc** — tah se soupeři nepředává.
-* **SABOTÁŽ** – Při zapsání banku zničíš soupeři **50 % jeho aktuálního celkového skóre** (body nikam nepřecházejí, prostě zmizí).
-* **KRÁDEŽ** – Při zapsání banku ukradneš soupeři **30 % jeho aktuálního celkového skóre** a přičteš si je k vlastnímu.
-* **ZMIZÍK** – Při zapsání banku vymažeš soupeři přesně tolik bodů, kolik měl jeho **poslední zapsaný bank** (pokud ještě nebankoval, nic se nestane).
+* **SABOTÁŽ** – Při zapsání banku zničíš soupeři **25 % jeho aktuálního celkového skóre** (body nikam nepřecházejí, prostě zmizí).
+* **KRÁDEŽ** – Při zapsání banku ukradneš soupeři **15 % jeho aktuálního celkového skóre** a přičteš si je k vlastnímu.
+* **ZMIZÍK** – Při zapsání banku vymažeš soupeři přesně tolik bodů, kolik měl jeho **poslední zapsaný bank** (pokud ještě nebankoval, nic se nestane). Pokud **vyprší nevyužitý**, sundá soupeři rovnou **500 bodů**.
 * **POJISTKA** – Když příště hodíš *Farkle*, body nasbírané v tom kole se ti přesto **automaticky připíšou** místo ztráty.
-* **ZRCADLOVÝ ŠTÍT** – Pasivní obrana. Použije-li na tebe soupeř Sabotáž nebo Krádež, útok se **odrazí zpátky** — útočník místo tebe ztratí 30 % svého celkového skóre.
+* **ZRCADLOVÝ ŠTÍT** – Pasivní obrana. Použije-li na tebe soupeř Sabotáž nebo Krádež, útok se **odrazí zpátky** — útočník místo tebe ztratí 30 % svého celkového skóre. Pokud štít **vyprší nevyužitý** (nahradí ho nová schopnost), získáš jako náhradu **+500 bodů**.
 
 ---
 

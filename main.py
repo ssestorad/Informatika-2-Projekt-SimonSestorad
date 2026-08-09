@@ -10,6 +10,7 @@ from game import FarkleGame
 from abilities import ABILITY_NAMES
 from strings import STRINGS
 from ai import AI_PROFILES, pick_scoring_dice_indices, should_bank
+from theme import *
 import sound
 
 if sys.platform == "win32":
@@ -18,23 +19,6 @@ if sys.platform == "win32":
         ctypes.windll.shcore.SetProcessDpiAwareness(1)
     except Exception:
         pass
-
-# ---- vizuální styl: plsťový herní stůl ----
-FELT_950 = "#0e2019"
-FELT_800 = "#1c3a2c"
-FELT_700 = "#274a39"
-IVORY_100 = "#f4ecd8"
-IVORY_300 = "#d9cfb6"
-GOLD_500 = "#d6a24a"
-GOLD_300 = "#e9c27a"
-VIOLET_500 = "#9078c9"
-VIOLET_300 = "#b6a4dd"
-EMBER_500 = "#cf5b3e"
-INK_900 = "#08120e"
-
-DISPLAY_FONT = "Bahnschrift"
-BODY_FONT = "Segoe UI"
-MONO_FONT = "Consolas"
 
 DIE_PIP_LAYOUT = {
     1: [(2, 2)],
@@ -150,6 +134,8 @@ EVENT_SOUNDS = {
     "insurance_saved": sound.play_ability,
     "banked": sound.play_bank,
     "extra_turn": sound.play_ability,
+    "shield_expired": sound.play_ability,
+    "eraser_expired": sound.play_ability,
     "new_ability": sound.play_ability,
     "hot_dice": sound.play_ability,
     "confirm_first": sound.play_warning,
@@ -172,20 +158,6 @@ def drain_events(*sources):
         if source:
             _add_events(source)
             source.clear()
-
-def lighten(hex_color, amount=0.18):
-    hex_color = hex_color.lstrip("#")
-    r, g, b = int(hex_color[0:2], 16), int(hex_color[2:4], 16), int(hex_color[4:6], 16)
-    r = int(r + (255 - r) * amount)
-    g = int(g + (255 - g) * amount)
-    b = int(b + (255 - b) * amount)
-    return f"#{r:02x}{g:02x}{b:02x}"
-
-def darken(hex_color, amount=0.08):
-    hex_color = hex_color.lstrip("#")
-    r, g, b = int(hex_color[0:2], 16), int(hex_color[2:4], 16), int(hex_color[4:6], 16)
-    r, g, b = int(r * (1 - amount)), int(g * (1 - amount)), int(b * (1 - amount))
-    return f"#{r:02x}{g:02x}{b:02x}"
 
 def flat_button(parent, text, bg, fg, command, font_size=11):
     hover_bg = lighten(bg)
@@ -297,6 +269,11 @@ def language_button(parent, lang_code, draw_fn, label_key, on_change):
     return wrapper
 
 def show_game_screen():
+    """Vstupni bod pro vykresleni herni obrazovky. Poprve postavi celou
+    kostru (_build_game_screen), pri kazdem dalsim volani uz jen updatuje
+    existujici widgety (_update_game_screen) - misto aby vse znovu stavela
+    a rusila, coz bylo zbytecne narocne pri castem prekreslovani (napr.
+    behem tahu AI)."""
     global game_window, game
     if game_window is None:
         game_window = Toplevel()
@@ -306,96 +283,51 @@ def show_game_screen():
 
     game_window.title(f"{game.current_player.name} - {t('game_window_suffix')}")
 
-    # Nový obsah se sestaví stranou a vymění se za starý až v okamžiku,
-    # kdy je hotový – okno tak nikdy není mezitím prázdné (žádné bliknutí).
-    old_content = getattr(game_window, "content_frame", None)
-    content = Frame(game_window, bg=FELT_950)
+    if not hasattr(game_window, "widgets"):
+        _build_game_screen()
+    else:
+        _update_game_screen()
 
-    opponent = game.get_opponent()
-    ability = game.current_player.get_active_ability()
+def _score_block(parent, anchor, bar_color):
+    """Vytvori jeden blok scoreboardu (jmeno/skore/progress) beze zapnutych
+    hodnot - ty se pak nastavuji pres _update_score_block."""
+    block = Frame(parent, bg=FELT_950)
+    name_label = Label(block, font=(MONO_FONT, 11, "bold"), bg=FELT_950)
+    name_label.pack(anchor=anchor)
+    score_label = Label(block, font=(MONO_FONT, 26, "bold"), bg=FELT_950, fg=IVORY_100)
+    score_label.pack(anchor=anchor)
 
-    # ---------- scoreboard rail ----------
-    scoreboard = Frame(content, bg=FELT_950)
-    scoreboard.pack(fill=X)
+    track = Frame(block, bg=FELT_700, height=6, width=220)
+    track.pack(anchor=anchor, pady=(4, 2))
+    track.pack_propagate(False)
+    fill = Frame(track, bg=bar_color, height=6, width=0)
+    fill.place(x=0, y=0)
 
-    pad = Frame(scoreboard, bg=FELT_950)
-    pad.pack(fill=X, padx=26, pady=(16, 10))
-    pad.columnconfigure(0, weight=1)
-    pad.columnconfigure(2, weight=1)
+    caption_label = Label(block, font=(MONO_FONT, 9), bg=FELT_950, fg=IVORY_300)
+    caption_label.pack(anchor=anchor)
 
-    def score_block(parent, player, name_color, bar_color, anchor):
-        block = Frame(parent, bg=FELT_950)
-        Label(block, text=player.name.upper(), font=(MONO_FONT, 11, "bold"),
-              bg=FELT_950, fg=name_color).pack(anchor=anchor)
-        Label(block, text=f"{player.total_score:,}", font=(MONO_FONT, 26, "bold"),
-              bg=FELT_950, fg=IVORY_100).pack(anchor=anchor)
+    return block, {"name": name_label, "score": score_label, "fill": fill, "caption": caption_label}
 
-        track = Frame(block, bg=FELT_700, height=6, width=220)
-        track.pack(anchor=anchor, pady=(4, 2))
-        track.pack_propagate(False)
-        pct = min(100, player.total_score / game.target_score * 100)
-        fill_w = int(220 * pct / 100)
-        fill_x = 220 - fill_w if anchor == "e" else 0
-        Frame(track, bg=bar_color, height=6, width=fill_w).place(x=fill_x, y=0)
+def _update_score_block(widgets, player, name_color, anchor):
+    widgets["name"].configure(text=player.name.upper(), fg=name_color)
+    widgets["score"].configure(text=f"{player.total_score:,}")
+    pct = min(100, player.total_score / game.target_score * 100)
+    fill_w = int(220 * pct / 100)
+    fill_x = 220 - fill_w if anchor == "e" else 0
+    widgets["fill"].configure(width=fill_w)
+    widgets["fill"].place(x=fill_x, y=0)
+    widgets["caption"].configure(text=f"{player.total_score:,} / {game.target_score:,}")
 
-        Label(block, text=f"{player.total_score:,} / {game.target_score:,}", font=(MONO_FONT, 9),
-              bg=FELT_950, fg=IVORY_300).pack(anchor=anchor)
-        return block
-
-    score_block(pad, game.current_player, GOLD_300, GOLD_500, "w").grid(row=0, column=0, sticky="w")
-
-    hud_center = Frame(pad, bg=FELT_950)
-    hud_center.grid(row=0, column=1, padx=30)
-    ability_text = f"{t('ability_prefix')}{ability_name(ability).upper()}"
-    if ability in game.current_player.abilities_used:
-        ability_text += t("ability_used_suffix")
-    Label(hud_center, text=ability_text, font=(MONO_FONT, 10, "bold"),
-          bg=VIOLET_300, fg=FELT_950, padx=12, pady=4).pack()
-    Label(hud_center, text=t("turn_label", turn=game.current_player.turn_count), font=(MONO_FONT, 9),
-          bg=FELT_950, fg=IVORY_300).pack(pady=(6, 0))
-
-    score_block(pad, opponent, IVORY_300, VIOLET_500, "e").grid(row=0, column=2, sticky="e")
-
-    Frame(content, bg=EMBER_500 if game.farkle_pending else GOLD_500, height=2).pack(fill=X)
-
-    # ---------- table area: ledger + dice pit ----------
-    table_area = Frame(content, bg=FELT_800)
-    table_area.pack(fill=BOTH, expand=True)
-
-    ledger = Frame(table_area, bg=IVORY_100, width=260)
-    ledger.pack(side=LEFT, fill=Y, padx=(26, 16), pady=22)
-    ledger.pack_propagate(False)
-
-    ledger_pad = Frame(ledger, bg=IVORY_100)
-    ledger_pad.pack(fill=BOTH, expand=True, padx=20, pady=20)
-
-    sel_score, sel_combos = game.current_player.calculate_score(only_selected=True)
-    points_suffix = t("points_suffix")
-
-    Label(ledger_pad, text=t("ledger_selected"), font=(MONO_FONT, 10, "bold"),
-          bg=IVORY_100, fg=FELT_700, anchor="w").pack(fill=X)
-    Label(ledger_pad, text=f"{sel_score} {points_suffix}", font=(DISPLAY_FONT, 22, "bold"),
-          bg=IVORY_100, fg=INK_900, anchor="w").pack(fill=X, pady=(0, 6))
+def _render_combo_list(combo_frame, sel_combos):
+    for w in combo_frame.winfo_children():
+        w.destroy()
     for combo in sel_combos:
-        Label(ledger_pad, text=f"✓ {format_combo(combo)}", font=(MONO_FONT, 11),
+        Label(combo_frame, text=f"✓ {format_combo(combo)}", font=(MONO_FONT, 11),
               bg=IVORY_100, fg=FELT_700, anchor="w").pack(fill=X)
 
-    Frame(ledger_pad, bg=FELT_700, height=1).pack(fill=X, pady=16)
-
-    Label(ledger_pad, text=t("ledger_round"), font=(MONO_FONT, 10, "bold"),
-          bg=IVORY_100, fg=FELT_700, anchor="w").pack(fill=X)
-    Label(ledger_pad, text=f"{game.current_player.round_score} {points_suffix}", font=(DISPLAY_FONT, 22, "bold"),
-          bg=IVORY_100, fg=INK_900, anchor="w").pack(fill=X)
-
-    dice_pit = Frame(table_area, bg=FELT_700)
-    dice_pit.pack(side=RIGHT, fill=BOTH, expand=True, padx=(0, 26), pady=22)
-
-    if game.farkle_pending:
-        Label(dice_pit, text=t("farkle_banner"), font=(DISPLAY_FONT, 15, "bold"),
-              bg=FELT_700, fg=EMBER_500).pack(pady=(18, 0))
-
-    dice_grid = Frame(dice_pit, bg=FELT_700)
-    dice_grid.pack(expand=True)
+def _render_dice_grid(dice_grid):
+    for w in dice_grid.winfo_children():
+        w.destroy()
 
     for i in range(6):
         die = game.current_player.dice[i]
@@ -427,13 +359,9 @@ def show_game_screen():
             canvas.configure(cursor="hand2")
             canvas.bind("<Button-1>", lambda e, idx=i: select_die(idx))
 
-    # ---------- event log ----------
-    log_strip = Frame(content, bg=INK_900, height=132)
-    log_strip.pack(fill=X)
-    log_strip.pack_propagate(False)
-
-    log_pad = Frame(log_strip, bg=INK_900)
-    log_pad.pack(fill=BOTH, expand=True, padx=26, pady=12)
+def _render_log(log_pad):
+    for w in log_pad.winfo_children():
+        w.destroy()
 
     if log_events:
         for key, params in log_events[-4:]:
@@ -450,12 +378,9 @@ def show_game_screen():
         Label(log_pad, text=t("log_empty"), font=(MONO_FONT, 10), bg=INK_900, fg=IVORY_300,
               anchor="w", justify=LEFT).pack(fill=X)
 
-    # ---------- actions ----------
-    action_row = Frame(content, bg=FELT_950)
-    action_row.pack(fill=X)
-
-    action_pad = Frame(action_row, bg=FELT_950)
-    action_pad.pack(pady=18)
+def _render_actions(action_pad, sel_score):
+    for w in action_pad.winfo_children():
+        w.destroy()
 
     if is_ai_turn():
         Label(action_pad, text=t("ai_turn_status"), font=(MONO_FONT, 12, "bold"),
@@ -471,13 +396,133 @@ def show_game_screen():
         if game.current_player.round_score >= settings["bank_minimum"]:
             flat_button(action_pad, t("btn_bank"), IVORY_100, INK_900, bank_points_action).pack(side=LEFT, padx=8)
 
-    # Novy obsah se nejdriv prekryje pres stary (place, ne pack – umi
-    # se prekryvat) a az pak se stary smaze, aby mezi tim okno ani na
-    # okamzik nebylo prazdne.
-    content.place(x=0, y=0, relwidth=1, relheight=1)
-    if old_content is not None:
-        old_content.destroy()
+def _build_game_screen():
+    """Postavi trvalou kostru herni obrazovky (widgety, ktere se pri dalsich
+    tazich uz nikdy neruci, jen aktualizuji) a ulozi odkazy na ne do
+    game_window.widgets. Na konci rovnou zavola _update_game_screen(), ktera
+    do te kostry doplni skutecne hodnoty - staveni a plneni hodnotami tak
+    nemusi byt duplikovane."""
+    global game_window
+
+    content = Frame(game_window, bg=FELT_950)
+    content.pack(fill=BOTH, expand=True)
+
+    # ---------- scoreboard rail ----------
+    scoreboard = Frame(content, bg=FELT_950)
+    scoreboard.pack(fill=X)
+
+    pad = Frame(scoreboard, bg=FELT_950)
+    pad.pack(fill=X, padx=26, pady=(16, 10))
+    pad.columnconfigure(0, weight=1)
+    pad.columnconfigure(2, weight=1)
+
+    you_block, you_w = _score_block(pad, "w", GOLD_500)
+    you_block.grid(row=0, column=0, sticky="w")
+
+    hud_center = Frame(pad, bg=FELT_950)
+    hud_center.grid(row=0, column=1, padx=30)
+    ability_badge = Label(hud_center, font=(MONO_FONT, 10, "bold"), bg=VIOLET_300, fg=FELT_950, padx=12, pady=4)
+    ability_badge.pack()
+    turn_label = Label(hud_center, font=(MONO_FONT, 9), bg=FELT_950, fg=IVORY_300)
+    turn_label.pack(pady=(6, 0))
+
+    opp_block, opp_w = _score_block(pad, "e", VIOLET_500)
+    opp_block.grid(row=0, column=2, sticky="e")
+
+    divider = Frame(content, bg=GOLD_500, height=2)
+    divider.pack(fill=X)
+
+    # ---------- table area: ledger + dice pit ----------
+    table_area = Frame(content, bg=FELT_800)
+    table_area.pack(fill=BOTH, expand=True)
+
+    ledger = Frame(table_area, bg=IVORY_100, width=260)
+    ledger.pack(side=LEFT, fill=Y, padx=(26, 16), pady=22)
+    ledger.pack_propagate(False)
+
+    ledger_pad = Frame(ledger, bg=IVORY_100)
+    ledger_pad.pack(fill=BOTH, expand=True, padx=20, pady=20)
+
+    Label(ledger_pad, text=t("ledger_selected"), font=(MONO_FONT, 10, "bold"),
+          bg=IVORY_100, fg=FELT_700, anchor="w").pack(fill=X)
+    sel_value = Label(ledger_pad, font=(DISPLAY_FONT, 22, "bold"), bg=IVORY_100, fg=INK_900, anchor="w")
+    sel_value.pack(fill=X, pady=(0, 6))
+    combo_frame = Frame(ledger_pad, bg=IVORY_100)
+    combo_frame.pack(fill=X)
+
+    Frame(ledger_pad, bg=FELT_700, height=1).pack(fill=X, pady=16)
+
+    Label(ledger_pad, text=t("ledger_round"), font=(MONO_FONT, 10, "bold"),
+          bg=IVORY_100, fg=FELT_700, anchor="w").pack(fill=X)
+    round_value = Label(ledger_pad, font=(DISPLAY_FONT, 22, "bold"), bg=IVORY_100, fg=INK_900, anchor="w")
+    round_value.pack(fill=X)
+
+    dice_pit = Frame(table_area, bg=FELT_700)
+    dice_pit.pack(side=RIGHT, fill=BOTH, expand=True, padx=(0, 26), pady=22)
+
+    farkle_banner = Label(dice_pit, font=(DISPLAY_FONT, 15, "bold"), bg=FELT_700, fg=EMBER_500)
+
+    dice_grid = Frame(dice_pit, bg=FELT_700)
+    dice_grid.pack(expand=True)
+
+    # ---------- event log ----------
+    log_strip = Frame(content, bg=INK_900, height=132)
+    log_strip.pack(fill=X)
+    log_strip.pack_propagate(False)
+
+    log_pad = Frame(log_strip, bg=INK_900)
+    log_pad.pack(fill=BOTH, expand=True, padx=26, pady=12)
+
+    # ---------- actions ----------
+    action_row = Frame(content, bg=FELT_950)
+    action_row.pack(fill=X)
+
+    action_pad = Frame(action_row, bg=FELT_950)
+    action_pad.pack(pady=18)
+
+    game_window.widgets = {
+        "you": you_w, "opp": opp_w,
+        "ability_badge": ability_badge, "turn_label": turn_label,
+        "divider": divider,
+        "sel_value": sel_value, "combo_frame": combo_frame, "round_value": round_value,
+        "dice_pit": dice_pit, "farkle_banner": farkle_banner, "dice_grid": dice_grid,
+        "log_pad": log_pad, "action_pad": action_pad,
+    }
     game_window.content_frame = content
+
+    _update_game_screen()
+
+def _update_game_screen():
+    W = game_window.widgets
+    opponent = game.get_opponent()
+    ability = game.current_player.get_active_ability()
+
+    _update_score_block(W["you"], game.current_player, GOLD_300, "w")
+    _update_score_block(W["opp"], opponent, IVORY_300, "e")
+
+    ability_text = f"{t('ability_prefix')}{ability_name(ability).upper()}"
+    if ability in game.current_player.abilities_used:
+        ability_text += t("ability_used_suffix")
+    W["ability_badge"].configure(text=ability_text)
+    W["turn_label"].configure(text=t("turn_label", turn=game.current_player.turn_count))
+
+    W["divider"].configure(bg=EMBER_500 if game.farkle_pending else GOLD_500)
+
+    sel_score, sel_combos = game.current_player.calculate_score(only_selected=True)
+    points_suffix = t("points_suffix")
+    W["sel_value"].configure(text=f"{sel_score} {points_suffix}")
+    _render_combo_list(W["combo_frame"], sel_combos)
+    W["round_value"].configure(text=f"{game.current_player.round_score} {points_suffix}")
+
+    if game.farkle_pending:
+        W["farkle_banner"].configure(text=t("farkle_banner"))
+        W["farkle_banner"].pack(pady=(18, 0), before=W["dice_grid"])
+    else:
+        W["farkle_banner"].pack_forget()
+
+    _render_dice_grid(W["dice_grid"])
+    _render_log(W["log_pad"])
+    _render_actions(W["action_pad"], sel_score)
 
 def select_die(index):
     die = game.current_player.dice[index]
@@ -492,13 +537,14 @@ def roll_dice_action():
         show_game_screen()
         return
 
+    round_score_before_roll = game.current_player.round_score
     success = game.current_player.roll_dice()
 
     if not success:
         game.current_player.farkle_count += 1
         ability = game.current_player.get_active_ability()
         if ability == "insurance" and ability not in game.current_player.abilities_used:
-            saved_points = game.current_player.round_score
+            saved_points = round_score_before_roll
             if saved_points > 0:
                 game.current_player.total_score += saved_points
                 push_event("insurance_saved", player=game.current_player.name, points=saved_points)
@@ -533,6 +579,8 @@ def show_end_screen(winner):
     global game_window, root
 
     sound.play_win()
+    if hasattr(game_window, "widgets"):
+        del game_window.widgets
     old_content = getattr(game_window, "content_frame", None)
     content = Frame(game_window, bg=FELT_950)
 

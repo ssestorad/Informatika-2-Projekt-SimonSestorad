@@ -29,7 +29,7 @@ class FarkleGame:
         }))
         self.events.append(("target", {"target": f"{self.target_score:,}"}))
 
-        self.current_player.new_turn()
+        self.current_player.new_turn(self.get_opponent())
 
     def switch_player(self):
         """Přepne hráče a kompletně zresetuje stůl pro nového hráče"""
@@ -37,15 +37,15 @@ class FarkleGame:
             self.current_player = self.tail_player
         else:
             self.current_player = self.head_player
-            
+
         self.current_player.reset_round()
 
-        self.current_player.new_turn()
+        self.current_player.new_turn(self.get_opponent())
 
     def grant_extra_turn(self):
         """Stejny reset jako switch_player, ale hrac zustava stejny (schopnost Extra tah)."""
         self.current_player.reset_round()
-        self.current_player.new_turn()
+        self.current_player.new_turn(self.get_opponent())
 
     def get_opponent(self):
         return self.tail_player if self.current_player == self.head_player else self.head_player

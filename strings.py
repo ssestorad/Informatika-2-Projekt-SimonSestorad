@@ -92,6 +92,8 @@ STRINGS = {
         "ev_hot_dice": "Horké kostky! Házíš znovu všemi šesti!",
         "ev_banked": "{player} uložil {amount} bodů do banku.",
         "ev_extra_turn": "Extra tah! {player} hraje ještě jednou, tah se nepředává.",
+        "ev_shield_expired": "Zrcadlový štít {player} vypršel nevyužitý — +500 bodů jako náhrada.",
+        "ev_eraser_expired": "Zmizík {player} vypršel nevyužitý — soupeři {opponent} sundal 500 bodů!",
 
         # kombinace v bodovacím ledgeru
         "combo_six_kind": "6 stejných: {points}",
@@ -185,6 +187,8 @@ STRINGS = {
         "ev_hot_dice": "Hot dice! Roll all six again!",
         "ev_banked": "{player} banked {amount} points.",
         "ev_extra_turn": "Extra turn! {player} plays again — the turn doesn't pass.",
+        "ev_shield_expired": "{player}'s mirror shield expired unused — +500 points as compensation.",
+        "ev_eraser_expired": "{player}'s eraser expired unused — knocked 500 points off {opponent}!",
 
         "combo_six_kind": "Six of a kind: {points}",
         "combo_straight": "Straight: {points}",
@@ -277,6 +281,8 @@ STRINGS = {
         "ev_hot_dice": "קוביות חמות! הטל שוב את כל השש!",
         "ev_banked": "{player} הפקיד {amount} נקודות.",
         "ev_extra_turn": "תור נוסף! {player} משחק שוב, התור לא עובר.",
+        "ev_shield_expired": "מגן המראה של {player} פג ללא ניצול — +500 נקודות כפיצוי.",
+        "ev_eraser_expired": "המוחק של {player} פג ללא ניצול — הוריד 500 נקודות מ-{opponent}!",
 
         "combo_six_kind": "שישייה זהה: {points}",
         "combo_straight": "רצף: {points}",
