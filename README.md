@@ -1,6 +1,6 @@
 # Farkle se schopnostmi
 
-Tato hra je rozšířenou verzí klasické kostkové hry **Farkle**, obohacenou o **speciální schopnosti hráčů**, které přidávají strategickou hloubku a zvyšují znovuhratelnost. Hra má vlastní obrazovku **nastavení** a je plně **lokalizovaná do tří jazyků** (čeština, angličtina, hebrejština).
+Tato hra je rozšířenou verzí klasické kostkové hry **Farkle**, obohacenou o **speciální schopnosti hráčů**, které přidávají strategickou hloubku a zvyšují znovuhratelnost. Hraje se **hráč proti hráči** nebo **hráč proti AI**, hra má vlastní obrazovku **nastavení** a je plně **lokalizovaná do tří jazyků** (čeština, angličtina, hebrejština).
 
 ![Ukázka hry](assets/screenshot.png)
 
@@ -16,7 +16,7 @@ cd Informatika-2-Projekt-SimonSestorad
 python main.py
 ```
 
-Hra se ovládá myší — kostky se vybírají kliknutím, dál se pokračuje tlačítky HÁZEJ / POTVRĎ VÝBĚR / BANK.
+Hra se ovládá myší — kostky se vybírají kliknutím, dál se pokračuje tlačítky HÁZEJ / POTVRĎ VÝBĚR / BANK. Pro rychlejší hraní jdou použít i **klávesové zkratky**: `Enter` = házej / pokračuj po Farkle, `mezerník` = bank, `C` = potvrď výběr (vždy jen když je daná akce skutečně dostupná). Herní okno je možné libovolně **zvětšit nebo zmenšit** tažením za okraj.
 
 ---
 
@@ -26,13 +26,26 @@ Cílem hry je být **první hráč**, který dosáhne cílového počtu bodů (v
 
 ---
 
+## Herní režimy
+
+Z hlavního menu se vybírá mezi dvěma tlačítky:
+
+* **HRÁČ VS HRÁČ** — klasická hra pro dva lidi u jednoho počítače, oba zadají jméno.
+* **HRÁČ VS AI** — hraje se proti počítači, který se jmenuje "AI". Kromě jména se vybírá i **obtížnost**:
+  * **OPATRNÁ** — bankuje při první rozumné příležitosti, moc neriskuje.
+  * **RISKUJÍCÍ** — pokračuje v házení déle, i s málo kostkami na stole.
+
+  AI hraje podle úplně stejných pravidel a se stejnými schopnostmi jako člověk, jen se sama rozhoduje mezi dalším hodem a bankem. Tahy AI běží se zpožděním mezi kroky (hod → výběr → potvrzení → rozhodnutí), ať je vidět, co dělá — tlačítka se během jejího tahu schovají a nahradí textem "AI hraje…".
+
+---
+
 ## Nastavení
 
 Z hlavního menu je dostupné tlačítko **NASTAVENÍ**, kde lze upravit:
 
 * **Cílové skóre** — kolik bodů je potřeba k výhře (výchozí 10 000).
 * **Minimální bank** — kolik bodů musí mít hráč nasbíráno v kole, aby mohl kolo ukončit a zapsat si je (výchozí 500).
-* **Rozlišení okna** — velikost herního okna, vybírá se z předpřipravených možností.
+* **Rozlišení okna** — počáteční velikost herního okna, vybírá se z předpřipravených možností (okno pak jde libovolně přetáhnout na jinou velikost).
 * **Jazyk** — přepínání mezi třemi jazyky pomocí vlaječek:
   * 🇨🇿 **čeština**
   * 🇬🇧🇺🇸 **angličtina**
@@ -40,13 +53,15 @@ Z hlavního menu je dostupné tlačítko **NASTAVENÍ**, kde lze upravit:
 
   Lokalizované je kompletně celé rozhraní hry — nadpisy, tlačítka, popisky kostek, bodovací kombinace i hlášky, které se za běhu objevují v herním logu (Farkle, bank, aktivace schopností apod.).
 
+Nastavení se **ukládá mezi spuštěními** (do souboru `settings.json` vedle hry), takže se po restartu hry nemusí nastavovat znovu.
+
 ---
 
 ## Pravidla hry
 
 ### Průběh tahu
 
-1. **Hod.** Hráč začíná své kolo tlačítkem HÁZEJ, které hodí všemi šesti kostkami.
+1. **Hod.** Hráč začíná své kolo tlačítkem HÁZEJ, které hodí všemi šesti kostkami (kostky, které ještě nejsou odložené, se předtím krátce zamíchají animací, než se ustálí na skutečném výsledku, a hod je doprovázený zvukem).
 2. **Výběr bodovaných kostek.** Z hozených kostek musí hráč kliknutím vybrat **alespoň jednu bodovanou kostku** nebo kombinaci (viz bodovací tabulka níže) — nebodované kostky vybrat nejde. Vybrané kostky (stav VYBRÁNO) ukazují svůj součet v panelu „Vybráno k odložení".
    * Hráč nemusí vybrat úplně všechny bodované kostky z hodu — může si nechat jen část a zbytek riskovat v dalším hodu (např. nechat si jednu jedničku a zkusit ze zbylých kostek trefit trojici).
 3. **Potvrzení výběru.** Tlačítkem POTVRĎ VÝBĚR se vybrané kostky **odloží (uloží)** a jejich body se přičtou k „Nasbíráno v kole". Odložené kostky (stav ULOŽENO) se dál nehází.
@@ -81,6 +96,8 @@ Pokud hod **neobsahuje žádnou bodovanou kostku** (mezi kostkami, které ješt�
 ---
 
 ## Schopnosti hráčů
+
+Přehled níže nemusíš mít v hlavě — stačí ve hře najet myší na fialový odznak aktivní schopnosti nahoře a zobrazí se bublinová nápověda s vysvětlením, co dělá.
 
 ### Pravidla schopností
 

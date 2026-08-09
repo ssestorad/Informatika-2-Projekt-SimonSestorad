@@ -311,7 +311,8 @@ def show_game_screen():
     if game_window is None:
         game_window = Toplevel()
         game_window.geometry(settings["resolution"])
-        game_window.resizable(False, False)
+        game_window.resizable(True, True)
+        game_window.minsize(1000, 800)
         game_window.configure(bg=FELT_950)
         game_window.bind("<KeyPress>", handle_game_shortcut)
 
