@@ -19,17 +19,3 @@ class Dice:
 
     def reset_selection(self):
         self.selected = False
-
-    def get_display(self):
-        if self.value == 0:
-            return "  ?  "
-        
-        displays = {
-            1: "  ●  ",
-            2: "●   ●",
-            3: "● ● ●",
-            4: "● ●\n● ●",
-            5: "● ● ●\n● ●  ",
-            6: "● ● ●\n● ● ●"
-        }
-        return displays.get(self.value, "  ?  ")
