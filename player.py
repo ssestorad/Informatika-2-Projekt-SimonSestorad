@@ -1,6 +1,5 @@
 from dice import Dice
 from collections import Counter
-from tkinter import messagebox
 from random import choice
 
 class Player:
@@ -14,6 +13,7 @@ class Player:
         self.abilities_used = {}
         self.turn_count = 0
         self.dice = [Dice() for _ in range(6)]
+        self.events = []
 
     def new_turn(self):
         self.turn_count += 1
@@ -24,9 +24,8 @@ class Player:
             self.secondary_ability = choice(["double", "sabotage", "steal", "fast_points", "boost"])
             if self.secondary_ability in self.abilities_used:
                 del self.abilities_used[self.secondary_ability]
-            
-            messagebox.showinfo("NOVÁ SCHOPNOST!", 
-                f"{self.name}: {self.secondary_ability.upper()}!\n(Tah #{self.turn_count})")
+
+            self.events.append(f"Nová schopnost pro {self.name}: {self.secondary_ability.upper()} (tah #{self.turn_count})")
 
     def roll_dice(self):
         for d in self.dice:
@@ -116,27 +115,26 @@ class Player:
         elif ability == "eraser" and ability not in self.abilities_used:
             penalty = opponent.last_bank
             opponent.total_score = max(0, opponent.total_score - penalty)
-            messagebox.showinfo("Zmizík!", f"Hráč {self.name} vymazal {opponent.name} posledních {penalty} bodů!")
+            self.events.append(f"Zmizík! {self.name} vymazal {opponent.name} posledních {penalty} bodů!")
             self.abilities_used[ability] = True
         elif ability in ["sabotage", "steal"] and ability not in self.abilities_used:
             if opponent.get_active_ability() == "mirror_shield" and "mirror_shield" not in opponent.abilities_used:
-                messagebox.showinfo("ZRCADLOVÝ ŠTÍT!", f"{opponent.name} má štít! Útok se odrazil!")
                 penalty = int(self.total_score * 0.3)
                 self.total_score -= penalty
-                messagebox.showwarning("TREST", f"Pokus o útok tě stál {penalty} bodů!")
+                self.events.append(f"Zrcadlový štít! {opponent.name} má štít, útok se odrazil a stál {self.name} {penalty} bodů!")
                 opponent.abilities_used["mirror_shield"] = True
             else:
                 if ability == "sabotage":
                     penalty = int(opponent.total_score * 0.5)
                     opponent.total_score -= penalty
-                    messagebox.showinfo("SABOTÁŽ!", f"Hráč {self.name} ubral soupeři polovinu bodů (-{penalty} b)!")
-                
+                    self.events.append(f"Sabotáž! {self.name} ubral soupeři {opponent.name} polovinu bodů (-{penalty} b)!")
+
                 elif ability == "steal":
                     amount = int(opponent.total_score * 0.3)
                     opponent.total_score -= amount
                     self.total_score += amount
-                    messagebox.showinfo("KRÁDEŽ!", f"Ukradl jsi {opponent.name} 30 % bodů (+{amount} b)!")
-            
+                    self.events.append(f"Krádež! {self.name} ukradl {opponent.name} 30 % bodů (+{amount} b)!")
+
             self.abilities_used[ability] = True
 
         self.last_bank = final_gain
