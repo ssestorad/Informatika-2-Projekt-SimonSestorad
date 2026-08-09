@@ -2,6 +2,22 @@
 
 Tato hra je rozšířenou verzí klasické kostkové hry **Farkle**, obohacenou o **speciální schopnosti hráčů**, které přidávají strategickou hloubku a zvyšují znovuhratelnost.
 
+![Ukázka hry](assets/screenshot.png)
+
+---
+
+## Jak hru spustit
+
+**Požadavky:** Python 3 s modulem `tkinter` (u instalace z [python.org](https://www.python.org/) je součástí výchozí instalace; na Linuxu může být potřeba doinstalovat balíček `python3-tk`).
+
+```bash
+git clone https://github.com/ssestorad/Informatika-2-Projekt-SimonSestorad.git
+cd Informatika-2-Projekt-SimonSestorad
+python main.py
+```
+
+Hra se ovládá myší — kostky se vybírají kliknutím, dál se pokračuje tlačítky HÁZEJ / POTVRĎ VÝBĚR / BANK.
+
 ---
 
 ## Cíl hry
@@ -35,7 +51,7 @@ Cílem hry je být **první hráč**, který dosáhne předem stanoveného počt
 | 3 × pětka (5)    | 500  |
 | 3 × šestka (6)   | 600  |
 | 3 × jednička (1) | 1000 |
-| 3 × dvojice (např. 2-2-2 a 5-5-5) | 1000 |
+| 3 × dvojice (např. 2-2, 5-5, 6-6) | 1000 |
 | Postupka (1-2-3-4-5-6) | 2000 |
 | 6 stejných čísel | 5000 |
 
@@ -47,9 +63,9 @@ Cílem hry je být **první hráč**, který dosáhne předem stanoveného počt
 
 * Každý hráč získá **první schopnost na začátku hry**.
 * **Novou schopnost** získá hráč **každých 5 svých tahů**.
-* **Každá schopnost se automaticky aktivuje okamžitě ve chvíli, kdy ji hráč získá**.
+* Schopnosti se aktivují **automaticky**, jakmile nastane jejich podmínka — u většiny hned při získání, u Pojistky a Zrcadlového štítu až v okamžiku, kdy je potřeba (Farkle / útok soupeře).
 * Schopnosti **nelze odkládat ani šetřit na později**.
-* Každá schopnost se takto použije **přesně jednou**.
+* Každá schopnost se použije **přesně jednou**.
 
 ### Přehled schopností
 
@@ -63,4 +79,3 @@ Cílem hry je být **první hráč**, který dosáhne předem stanoveného počt
 * **ZMIZÍK** – Úplně vymažeš soupeřův **poslední zapsaný bank**.
 
 ---
-
