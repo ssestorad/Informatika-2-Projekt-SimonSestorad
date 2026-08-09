@@ -34,8 +34,3 @@ class Dice:
             6: "● ● ●\n● ● ●"
         }
         return displays.get(self.value, "  ?  ")
-    
-    def reset_full(self):
-        self.value = 0
-        self.kept = False
-        self.selected = False
