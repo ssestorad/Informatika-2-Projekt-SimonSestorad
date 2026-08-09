@@ -103,6 +103,11 @@ log_events = []
 ai_player = None
 ai_profile = None
 app_icon = None
+animating_roll = False
+
+ROLL_ANIMATION_FRAMES = 6
+ROLL_ANIMATION_DELAY_MS = 70
+SKIP_ROLL_ANIMATION = False  # test hook - synchronni dokonceni hodu bez blikani
 
 def t(key, **kwargs):
     template = STRINGS[settings["language"]][key]
@@ -530,13 +535,45 @@ def select_die(index):
         die.selected = not die.selected
         show_game_screen()
 
-def roll_dice_action():
-    global game
+def roll_dice_action(on_complete=None):
+    """Zahaji hod - nejdriv kratka animace (kostky par snimku blikaji nahodnymi
+    hodnotami), az po ni se provede skutecny hod a vyhodnoti se vysledek.
+    on_complete (pokud je zadany) se zavola az po skutecnem dokonceni hodu -
+    pouziva to AI orchestrace, ktera nesmi kontrolovat vysledek drive, nez
+    je opravdu hotovy."""
+    global game, animating_roll
     if any(d.selected for d in game.current_player.dice):
         push_event("confirm_first")
         show_game_screen()
+        if on_complete:
+            on_complete()
+        return
+    if animating_roll:
+        return
+    if SKIP_ROLL_ANIMATION:
+        _finish_roll(on_complete)
+        return
+    animating_roll = True
+    _animate_roll_frame(ROLL_ANIMATION_FRAMES, on_complete)
+
+def _animate_roll_frame(frames_left, on_complete):
+    global animating_roll
+    if frames_left <= 0:
+        animating_roll = False
+        _finish_roll(on_complete)
         return
 
+    dice_grid = game_window.widgets["dice_grid"]
+    for i, wrapper in enumerate(dice_grid.winfo_children()):
+        die = game.current_player.dice[i]
+        if not die.kept:
+            canvas = wrapper.winfo_children()[0]
+            draw_die(canvas, 110, randint(1, 6), INK_900, IVORY_100)
+
+    game_window.after(ROLL_ANIMATION_DELAY_MS, lambda: _animate_roll_frame(frames_left - 1, on_complete))
+
+def _finish_roll(on_complete):
+    global game
     round_score_before_roll = game.current_player.round_score
     success = game.current_player.roll_dice()
 
@@ -558,6 +595,9 @@ def roll_dice_action():
     else:
         sound.play_roll()
         show_game_screen()
+
+    if on_complete:
+        on_complete()
 
 def continue_after_farkle():
     global game
@@ -708,7 +748,11 @@ def ai_maybe_take_turn():
 def ai_roll_step():
     if not is_ai_turn():
         return
-    roll_dice_action()
+    roll_dice_action(on_complete=_ai_after_roll)
+
+def _ai_after_roll():
+    if not is_ai_turn():
+        return
     if game.farkle_pending:
         game_window.after(AI_STEP_DELAY_MS, ai_continue_after_farkle_step)
     else:
