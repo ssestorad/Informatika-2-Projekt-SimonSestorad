@@ -33,3 +33,39 @@ ABILITY_NAMES = {
         "extra_turn": "תור נוסף",
     },
 }
+
+ABILITY_DESCRIPTIONS = {
+    "cs": {
+        "double": "Další zapsaný bank se zdvojnásobí (×2).",
+        "fast_points": "K nejbližšímu banku se přidá rovnou +500 bodů.",
+        "boost": "Po zapsání banku získáš navíc +10 % celkového skóre.",
+        "sabotage": "Při zapsání banku zničíš soupeři 25 % jeho skóre.",
+        "steal": "Při zapsání banku ukradneš soupeři 15 % jeho skóre.",
+        "eraser": "Vymaže soupeři jeho poslední zapsaný bank. Pokud vyprší nevyužitý, sundá mu 500 bodů.",
+        "mirror_shield": "Odrazí útok Sabotáže/Krádeže zpátky na útočníka. Pokud vyprší nevyužitý, dostaneš +500 bodů.",
+        "insurance": "Při Farkle si přesto necháš body nasbírané v kole.",
+        "extra_turn": "Po zapsání banku hraješ hned další tah navíc.",
+    },
+    "en": {
+        "double": "Your next banked score is doubled (×2).",
+        "fast_points": "+500 points added to your next bank.",
+        "boost": "After banking, gain an extra +10% of your total score.",
+        "sabotage": "When you bank, destroy 25% of the opponent's score.",
+        "steal": "When you bank, steal 15% of the opponent's score.",
+        "eraser": "Erases the opponent's last bank. If it expires unused, knocks 500 points off them instead.",
+        "mirror_shield": "Reflects a Sabotage/Steal attack back at the attacker. If it expires unused, you get +500 points.",
+        "insurance": "If you Farkle, you keep the points collected this round anyway.",
+        "extra_turn": "After banking, you immediately play another turn.",
+    },
+    "he": {
+        "double": "הבנק הבא שתפקיד יוכפל (×2).",
+        "fast_points": "+500 נקודות יתווספו לבנק הקרוב.",
+        "boost": "אחרי הפקדה תקבל בונוס של +10% מהניקוד הכולל.",
+        "sabotage": "בהפקדה תהרוס ליריב 25% מהניקוד שלו.",
+        "steal": "בהפקדה תגנוב מהיריב 15% מהניקוד שלו.",
+        "eraser": "מוחק את ההפקדה האחרונה של היריב. אם יפוג ללא ניצול, יוריד לו 500 נקודות.",
+        "mirror_shield": "מחזיר התקפת חבלה/גניבה חזרה לתוקף. אם יפוג ללא ניצול, תקבל +500 נקודות.",
+        "insurance": "אם תעשה פארקל, הנקודות מהסיבוב הזה יישמרו בכל זאת.",
+        "extra_turn": "אחרי הפקדה תשחק מיד תור נוסף.",
+    },
+}

@@ -7,7 +7,7 @@ import os
 import json
 from player import Player
 from game import FarkleGame
-from abilities import ABILITY_NAMES
+from abilities import ABILITY_NAMES, ABILITY_DESCRIPTIONS
 from strings import STRINGS
 from ai import AI_PROFILES, pick_scoring_dice_indices, should_bank
 from theme import *
@@ -184,6 +184,34 @@ def choice_chip(parent, text, selected, on_click):
     label.bind("<Enter>", lambda e: label.configure(bg=hover_bg))
     label.bind("<Leave>", lambda e: label.configure(bg=IVORY_100))
     return wrapper
+
+def add_tooltip(widget, text_getter):
+    """Pripoji bublinovou napovedu k widgetu. text_getter je funkce bez
+    argumentu, ktera se zavola az v okamziku najeti mysi (aby napoveda
+    vzdy ukazovala aktualni stav, ne to, co platilo pri vytvoreni widgetu)."""
+    state = {"win": None}
+
+    def show(event):
+        text = text_getter()
+        if not text:
+            return
+        tw = Toplevel(widget)
+        tw.wm_overrideredirect(True)
+        tw.configure(bg=INK_900)
+        x = widget.winfo_rootx() + 6
+        y = widget.winfo_rooty() + widget.winfo_height() + 8
+        tw.wm_geometry(f"+{x}+{y}")
+        Label(tw, text=text, font=(BODY_FONT, 10), bg=INK_900, fg=IVORY_100,
+              padx=10, pady=6, wraplength=280, justify=LEFT).pack()
+        state["win"] = tw
+
+    def hide(event):
+        if state["win"] is not None:
+            state["win"].destroy()
+            state["win"] = None
+
+    widget.bind("<Enter>", show, add="+")
+    widget.bind("<Leave>", hide, add="+")
 
 def is_ai_turn():
     return ai_player is not None and game is not None and game.current_player is ai_player
@@ -426,8 +454,11 @@ def _build_game_screen():
 
     hud_center = Frame(pad, bg=FELT_950)
     hud_center.grid(row=0, column=1, padx=30)
-    ability_badge = Label(hud_center, font=(MONO_FONT, 10, "bold"), bg=VIOLET_300, fg=FELT_950, padx=12, pady=4)
+    ability_badge = Label(hud_center, font=(MONO_FONT, 10, "bold"), bg=VIOLET_300, fg=FELT_950, padx=12, pady=4,
+                          cursor="hand2")
     ability_badge.pack()
+    add_tooltip(ability_badge, lambda: ABILITY_DESCRIPTIONS[settings["language"]].get(
+        game.current_player.get_active_ability(), ""))
     turn_label = Label(hud_center, font=(MONO_FONT, 9), bg=FELT_950, fg=IVORY_300)
     turn_label.pack(pady=(6, 0))
 
