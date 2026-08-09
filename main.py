@@ -3,6 +3,7 @@ from tkinter import messagebox
 from random import randint, choice
 from player import Player
 from game import FarkleGame
+from abilities import ABILITY_NAMES
 
 # ---- vizuální styl: plsťový herní stůl ----
 FELT_950 = "#0e2019"
@@ -116,7 +117,7 @@ def show_game_screen():
 
     hud_center = Frame(pad, bg=FELT_950)
     hud_center.grid(row=0, column=1, padx=30)
-    ability_text = f"SCHOPNOST: {ability.upper()}"
+    ability_text = f"SCHOPNOST: {ABILITY_NAMES.get(ability, ability).upper()}"
     if ability in game.current_player.abilities_used:
         ability_text += " (POUŽITO)"
     Label(hud_center, text=ability_text, font=(MONO_FONT, 10, "bold"),
@@ -242,6 +243,7 @@ def roll_dice_action():
     success = game.current_player.roll_dice()
 
     if not success:
+        game.current_player.farkle_count += 1
         ability = game.current_player.get_active_ability()
         if ability == "insurance" and ability not in game.current_player.abilities_used:
             saved_points = game.current_player.round_score
@@ -265,6 +267,73 @@ def keep_dice():
         push_log("Horké kostky! Házíš znovu všemi šesti!")
     show_game_screen()
 
+def ability_list(player):
+    names = [ABILITY_NAMES.get(a, a) for a in player.abilities_used]
+    return ", ".join(names) if names else "—"
+
+def show_end_screen(winner):
+    global game_window, root
+
+    old_content = getattr(game_window, "content_frame", None)
+    content = Frame(game_window, bg=FELT_950)
+
+    p1, p2 = game.head_player, game.tail_player
+
+    def color_for(player):
+        return GOLD_300 if player is winner else IVORY_300
+
+    Label(content, text=f"VÍTĚZ: {winner.name.upper()}", font=(DISPLAY_FONT, 34, "bold"),
+          bg=FELT_950, fg=GOLD_300).pack(pady=(36, 4))
+    Frame(content, bg=VIOLET_500, height=2, width=80).pack(pady=(0, 26))
+
+    table = Frame(content, bg=FELT_800)
+    table.pack(padx=60, pady=(0, 30), fill=X)
+
+    header = Frame(table, bg=FELT_800)
+    header.pack(fill=X, padx=24, pady=(20, 10))
+    header.columnconfigure(0, weight=2)
+    header.columnconfigure(1, weight=1)
+    header.columnconfigure(2, weight=1)
+    Label(header, text="", bg=FELT_800).grid(row=0, column=0, sticky="w")
+    Label(header, text=p1.name.upper(), font=(MONO_FONT, 12, "bold"), bg=FELT_800, fg=color_for(p1)).grid(row=0, column=1)
+    Label(header, text=p2.name.upper(), font=(MONO_FONT, 12, "bold"), bg=FELT_800, fg=color_for(p2)).grid(row=0, column=2)
+
+    def farkle_pct(player):
+        return f" ({player.farkle_count / player.turn_count * 100:.0f} %)" if player.turn_count else ""
+
+    rows = [
+        ("Finální skóre", f"{p1.total_score:,}", f"{p2.total_score:,}"),
+        ("Počet tahů", f"{p1.turn_count}", f"{p2.turn_count}"),
+        ("Farklů", f"{p1.farkle_count}{farkle_pct(p1)}", f"{p2.farkle_count}{farkle_pct(p2)}"),
+        ("Úspěšných banků", f"{p1.bank_count}", f"{p2.bank_count}"),
+        ("Nejvyšší bank", f"{p1.best_bank:,}", f"{p2.best_bank:,}"),
+        ("Celkem vsazeno", f"{p1.total_banked:,}", f"{p2.total_banked:,}"),
+        ("Získáno schopnostmi", f"+{p1.points_gained_from_abilities:,}", f"+{p2.points_gained_from_abilities:,}"),
+        ("Ztraceno útoky", f"-{p1.points_lost_to_attacks:,}", f"-{p2.points_lost_to_attacks:,}"),
+        ("Použité schopnosti", ability_list(p1), ability_list(p2)),
+    ]
+
+    for label, v1, v2 in rows:
+        row = Frame(table, bg=FELT_800)
+        row.pack(fill=X, padx=24, pady=6)
+        row.columnconfigure(0, weight=2)
+        row.columnconfigure(1, weight=1)
+        row.columnconfigure(2, weight=1)
+        Label(row, text=label, font=(MONO_FONT, 10), bg=FELT_800, fg=IVORY_300, anchor="w").grid(row=0, column=0, sticky="w")
+        Label(row, text=v1, font=(MONO_FONT, 11, "bold"), bg=FELT_800, fg=color_for(p1),
+              wraplength=170, justify=CENTER).grid(row=0, column=1)
+        Label(row, text=v2, font=(MONO_FONT, 11, "bold"), bg=FELT_800, fg=color_for(p2),
+              wraplength=170, justify=CENTER).grid(row=0, column=2)
+
+    Frame(table, bg=FELT_800, height=10).pack()
+
+    flat_button(content, "ZAVŘÍT HRU", GOLD_500, INK_900, root.destroy, font_size=13).pack(pady=(0, 30))
+
+    if old_content is not None:
+        old_content.destroy()
+    content.pack(fill=BOTH, expand=True)
+    game_window.content_frame = content
+
 def bank_points_action():
     global game, root
     opponent = game.get_opponent()
@@ -275,8 +344,7 @@ def bank_points_action():
 
     winner = game.check_winner()
     if winner:
-        messagebox.showinfo("VÍTĚZ!", f"Gratulujeme! {winner.name} vyhrál!")
-        root.destroy()
+        show_end_screen(winner)
     else:
         next_player()
 

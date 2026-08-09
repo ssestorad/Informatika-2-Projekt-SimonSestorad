@@ -1,4 +1,5 @@
 from random import choice
+from abilities import ABILITY_NAMES
 
 class FarkleGame:
     def __init__(self):
@@ -22,7 +23,9 @@ class FarkleGame:
         p2.primary_ability = choice([a for a in abilities if a != p1.primary_ability])
 
         self.events.append(f"Začíná hráč: {self.current_player.name}")
-        self.events.append(f"Primární schopnosti — {p1.name}: {p1.primary_ability.upper()}, {p2.name}: {p2.primary_ability.upper()}")
+        p1_ability = ABILITY_NAMES.get(p1.primary_ability, p1.primary_ability)
+        p2_ability = ABILITY_NAMES.get(p2.primary_ability, p2.primary_ability)
+        self.events.append(f"Primární schopnosti — {p1.name}: {p1_ability.upper()}, {p2.name}: {p2_ability.upper()}")
         self.events.append(f"Cíl: {self.target_score:,} bodů.")
 
         self.current_player.new_turn()

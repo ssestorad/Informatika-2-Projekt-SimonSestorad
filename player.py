@@ -1,6 +1,7 @@
 from dice import Dice
 from collections import Counter
 from random import choice
+from abilities import ABILITY_NAMES
 
 class Player:
     def __init__(self, name):
@@ -14,6 +15,12 @@ class Player:
         self.turn_count = 0
         self.dice = [Dice() for _ in range(6)]
         self.events = []
+        self.farkle_count = 0
+        self.bank_count = 0
+        self.best_bank = 0
+        self.total_banked = 0
+        self.points_gained_from_abilities = 0
+        self.points_lost_to_attacks = 0
 
     def new_turn(self):
         self.turn_count += 1
@@ -25,7 +32,8 @@ class Player:
             if self.secondary_ability in self.abilities_used:
                 del self.abilities_used[self.secondary_ability]
 
-            self.events.append(f"Nová schopnost pro {self.name}: {self.secondary_ability.upper()} (tah #{self.turn_count})")
+            ability_name = ABILITY_NAMES.get(self.secondary_ability, self.secondary_ability)
+            self.events.append(f"Nová schopnost pro {self.name}: {ability_name.upper()} (tah #{self.turn_count})")
 
     def roll_dice(self):
         for d in self.dice:
@@ -101,38 +109,49 @@ class Player:
 
         if ability == "fast_points" and ability not in self.abilities_used:
             final_gain += 500
+            self.points_gained_from_abilities += 500
             self.abilities_used[ability] = True
 
         self.total_score += final_gain
-        
+        self.bank_count += 1
+        self.total_banked += final_gain
+        self.best_bank = max(self.best_bank, final_gain)
+
         if ability == "double" and ability not in self.abilities_used:
             self.total_score += final_gain
+            self.points_gained_from_abilities += final_gain
             self.abilities_used[ability] = True
         elif ability == "boost" and ability not in self.abilities_used:
             boost = int(self.total_score * 0.1)
             self.total_score += boost
+            self.points_gained_from_abilities += boost
             self.abilities_used[ability] = True
         elif ability == "eraser" and ability not in self.abilities_used:
             penalty = opponent.last_bank
             opponent.total_score = max(0, opponent.total_score - penalty)
+            opponent.points_lost_to_attacks += penalty
             self.events.append(f"Zmizík! {self.name} vymazal {opponent.name} posledních {penalty} bodů!")
             self.abilities_used[ability] = True
         elif ability in ["sabotage", "steal"] and ability not in self.abilities_used:
             if opponent.get_active_ability() == "mirror_shield" and "mirror_shield" not in opponent.abilities_used:
                 penalty = int(self.total_score * 0.3)
                 self.total_score -= penalty
+                self.points_lost_to_attacks += penalty
                 self.events.append(f"Zrcadlový štít! {opponent.name} má štít, útok se odrazil a stál {self.name} {penalty} bodů!")
                 opponent.abilities_used["mirror_shield"] = True
             else:
                 if ability == "sabotage":
                     penalty = int(opponent.total_score * 0.5)
                     opponent.total_score -= penalty
+                    opponent.points_lost_to_attacks += penalty
                     self.events.append(f"Sabotáž! {self.name} ubral soupeři {opponent.name} polovinu bodů (-{penalty} b)!")
 
                 elif ability == "steal":
                     amount = int(opponent.total_score * 0.3)
                     opponent.total_score -= amount
                     self.total_score += amount
+                    opponent.points_lost_to_attacks += amount
+                    self.points_gained_from_abilities += amount
                     self.events.append(f"Krádež! {self.name} ukradl {opponent.name} 30 % bodů (+{amount} b)!")
 
             self.abilities_used[ability] = True
