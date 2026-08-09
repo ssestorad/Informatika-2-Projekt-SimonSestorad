@@ -1,6 +1,7 @@
 from tkinter import *
 from tkinter import messagebox
 from random import randint, choice
+from math import radians, cos, sin
 from player import Player
 from game import FarkleGame
 from abilities import ABILITY_NAMES
@@ -140,6 +141,26 @@ def draw_flag_en(canvas):
     for sx, sy in [(0.25, 0.3), (0.75, 0.3), (0.5, 0.75)]:
         cx, cy = half + canton_w * sx, canton_h * sy
         canvas.create_oval(cx - 1.4, cy - 1.4, cx + 1.4, cy + 1.4, fill="#ffffff", outline="")
+
+def draw_flag_il(canvas):
+    w, h = 46, 30
+    canvas.create_rectangle(0, 0, w, h, fill="#ffffff", outline="")
+    stripe_h = h * 0.16
+    canvas.create_rectangle(0, h * 0.12, w, h * 0.12 + stripe_h, fill="#0038b8", outline="")
+    canvas.create_rectangle(0, h - h * 0.12 - stripe_h, w, h - h * 0.12, fill="#0038b8", outline="")
+
+    # Davidova hvězda – dva překrývající se rovnostranné trojúhelníky
+    cx, cy, r = w / 2, h / 2, h * 0.26
+
+    def triangle_points(rotation_deg):
+        points = []
+        for k in range(3):
+            angle = radians(rotation_deg + k * 120 - 90)
+            points.extend([cx + r * cos(angle), cy + r * sin(angle)])
+        return points
+
+    canvas.create_polygon(*triangle_points(0), outline="#0038b8", fill="", width=2)
+    canvas.create_polygon(*triangle_points(60), outline="#0038b8", fill="", width=2)
 
 def language_button(parent, lang_code, draw_fn, label_key, on_change):
     selected = settings["language"] == lang_code
@@ -554,7 +575,7 @@ def player1_screen(root_win):
 def settings_screen(root_win):
     root_win.withdraw()
     win = Toplevel()
-    win.geometry("380x600")
+    win.geometry("430x600")
     win.resizable(False, False)
     win.configure(bg=FELT_950)
 
@@ -599,7 +620,8 @@ def settings_screen(root_win):
         lang_row = Frame(inner, bg=FELT_800)
         lang_row.pack(anchor="w", pady=(0, 24))
         language_button(lang_row, "cs", draw_flag_cz, "lang_cs", render).pack(side=LEFT, padx=(0, 12))
-        language_button(lang_row, "en", draw_flag_en, "lang_en", render).pack(side=LEFT)
+        language_button(lang_row, "en", draw_flag_en, "lang_en", render).pack(side=LEFT, padx=(0, 12))
+        language_button(lang_row, "he", draw_flag_il, "lang_he", render).pack(side=LEFT)
 
         btn_row = Frame(inner, bg=FELT_800)
         btn_row.pack(fill=X)

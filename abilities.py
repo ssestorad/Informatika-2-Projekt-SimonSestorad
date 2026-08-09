@@ -19,4 +19,14 @@ ABILITY_NAMES = {
         "mirror_shield": "Mirror Shield",
         "insurance": "Insurance",
     },
+    "he": {
+        "double": "מכפיל",
+        "fast_points": "נקודות מהירות",
+        "boost": "בוסט 10%",
+        "sabotage": "חבלה",
+        "steal": "גניבה",
+        "eraser": "מוחק",
+        "mirror_shield": "מגן מראה",
+        "insurance": "ביטוח",
+    },
 }
